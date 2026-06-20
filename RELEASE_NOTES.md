@@ -16,6 +16,7 @@ HoverAsk V1 is a native macOS floating voice assistant prototype. It gives you a
 
 ## Build Artifact
 
+- `HoverAsk-v1.0.0-macos.dmg`
 - `HoverAsk-v1.0.0-macos.zip`
 
 ## Requirements
@@ -27,4 +28,6 @@ HoverAsk V1 is a native macOS floating voice assistant prototype. It gives you a
 
 ## Notes
 
-This release is a private V1 prototype. No open-source license is granted yet.
+This release is a private V1 prototype. HoverAsk is proprietary software and no open-source license is granted.
+
+The app is ad-hoc signed for local testing, not Developer ID notarized yet. macOS may require right-clicking the app and choosing Open on first launch.

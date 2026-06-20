@@ -11,6 +11,11 @@ HoverAsk invokes local provider CLIs through `Process`:
 
 No API keys are requested or stored by HoverAsk.
 
+## Distribution Status
+
+V1 builds are ad-hoc signed for local testing. They are not Developer ID signed
+or notarized. Treat release artifacts as private evaluation builds.
+
 ## Permissions
 
 HoverAsk may request:

@@ -43,6 +43,20 @@ Launch it with:
 open outputs/HoverAsk.app
 ```
 
+## Package DMG
+
+After building the app, create a direct-install DMG with:
+
+```bash
+native-swift/HoverAsk/Scripts/package-dmg.sh
+```
+
+The DMG is created at:
+
+```bash
+outputs/HoverAsk-v1.0.0-macos.dmg
+```
+
 ## Provider Auth
 
 HoverAsk does not ask for API keys. It shells out to locally installed CLIs that are already logged in.
@@ -84,4 +98,4 @@ See [PRIVACY.md](PRIVACY.md) for details.
 
 ## Release Status
 
-V1 is prepared as a private GitHub release while branding, assets, and distribution decisions remain under review. No open-source license is granted at this stage.
+V1 is prepared as a private GitHub release while branding, assets, and distribution decisions remain under review. HoverAsk is proprietary software; see [LICENSE](LICENSE).
