@@ -67,8 +67,8 @@ final class SpeechService: NSObject {
 
         if audioEngine.isRunning {
             audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
         }
+        audioEngine.inputNode.removeTap(onBus: 0)
 
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
@@ -109,7 +109,14 @@ final class SpeechService: NSObject {
         recognitionRequest = request
 
         let inputNode = audioEngine.inputNode
+        inputNode.removeTap(onBus: 0)
         let recordingFormat = inputNode.outputFormat(forBus: 0)
+        guard recordingFormat.sampleRate > 0, recordingFormat.channelCount > 0 else {
+            onError?(SpeechServiceError.microphoneFailed("No usable microphone input format was found.").localizedDescription)
+            stop(cancel: true)
+            return
+        }
+
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak request] buffer, _ in
             request?.append(buffer)
         }
@@ -147,7 +154,7 @@ final class SpeechService: NSObject {
                 scheduleSilenceStop()
             }
 
-            if result.isFinal {
+            if result.isFinal && !shouldAutoStopOnSilence {
                 finish(with: transcript)
                 return
             }
@@ -156,7 +163,11 @@ final class SpeechService: NSObject {
         if let error, !didFinish {
             let nsError = error as NSError
             if nsError.domain == "kAFAssistantErrorDomain" && [1110, 203, 216].contains(nsError.code) {
-                finish(with: latestTranscript)
+                if shouldAutoStopOnSilence && !latestTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    scheduleSilenceStop()
+                } else {
+                    finish(with: latestTranscript)
+                }
             } else {
                 onError?(error.localizedDescription)
                 stop(cancel: true)
@@ -170,7 +181,7 @@ final class SpeechService: NSObject {
         }
 
         silenceTimer?.invalidate()
-        silenceTimer = Timer.scheduledTimer(withTimeInterval: 1.35, repeats: false) { [weak self] _ in
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
             self?.finish(with: self?.latestTranscript ?? "")
         }
     }

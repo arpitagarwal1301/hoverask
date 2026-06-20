@@ -49,6 +49,7 @@ final class OrbWindowController: NSObject {
     }
 
     func show() {
+        centerOnVisibleScreen()
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
     }
@@ -61,6 +62,14 @@ final class OrbWindowController: NSObject {
         isVisible ? hide() : show()
     }
 
+    func centerOnVisibleScreen() {
+        let visibleFrame = visibleFrame(containing: NSEvent.mouseLocation)
+        var frame = panel.frame
+        frame.origin.x = visibleFrame.midX - frame.width / 2
+        frame.origin.y = visibleFrame.midY - frame.height / 2
+        panel.setFrame(clampToVisibleScreen(frame, preferredPoint: NSEvent.mouseLocation), display: true, animate: false)
+    }
+
     func apply(phase: OrbPhase) {
         let size: CGSize
         let anchorMode: AnchorMode
@@ -68,7 +77,7 @@ final class OrbWindowController: NSObject {
         case .idle:
             size = WindowSize.idle
             anchorMode = .avatarCenter
-        case .listening:
+        case .chat, .listening:
             size = WindowSize.companion
             anchorMode = .avatarCenter
         case .thinking, .answer, .error:
@@ -91,15 +100,31 @@ final class OrbWindowController: NSObject {
 
     private func resize(to size: CGSize, anchorMode: AnchorMode) {
         var frame = panel.frame
-        let anchor = CGPoint(x: frame.midX, y: frame.midY)
+        let sourceAnchor = localAnchor(for: frame.size, anchorMode: anchorMode)
+        let screenAnchor = CGPoint(x: frame.minX + sourceAnchor.x, y: frame.minY + sourceAnchor.y)
+        let targetAnchor = localAnchor(for: size, anchorMode: anchorMode)
         frame.size = size
-        switch anchorMode {
-        case .avatarCenter, .windowCenter:
-            frame.origin.x = anchor.x - size.width / 2
-            frame.origin.y = anchor.y - size.height / 2
-        }
+        frame.origin.x = screenAnchor.x - targetAnchor.x
+        frame.origin.y = screenAnchor.y - targetAnchor.y
         frame = clampToVisibleScreen(frame)
         panel.setFrame(frame, display: true, animate: true)
+    }
+
+    private func localAnchor(for size: CGSize, anchorMode: AnchorMode) -> CGPoint {
+        switch anchorMode {
+        case .windowCenter:
+            return CGPoint(x: size.width / 2, y: size.height / 2)
+        case .avatarCenter:
+            if isCompanionSize(size) {
+                return CGPoint(x: size.width / 2, y: WindowSize.companionAvatarCenterY)
+            }
+            return CGPoint(x: size.width / 2, y: size.height / 2)
+        }
+    }
+
+    private func isCompanionSize(_ size: CGSize) -> Bool {
+        abs(size.width - WindowSize.companion.width) < 2 &&
+            abs(size.height - WindowSize.companion.height) < 2
     }
 
     func avatarCenter() -> CGPoint {
@@ -158,7 +183,8 @@ final class OrbWindowController: NSObject {
 
     private enum WindowSize {
         static let idle = CGSize(width: 136, height: 136)
-        static let companion = CGSize(width: 720, height: 420)
+        static let companion = CGSize(width: 520, height: 480)
+        static let companionAvatarCenterY: CGFloat = 76
         static let settings = CGSize(width: 620, height: 760)
     }
 }

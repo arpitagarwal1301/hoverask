@@ -12,38 +12,22 @@ struct OrbRootView: View {
             switch viewModel.phase {
             case .idle:
                 IdleOrbView(viewModel: viewModel)
+            case .chat:
+                CompanionChatView(viewModel: viewModel)
             case .listening:
-                CompanionChatView(viewModel: viewModel, title: "Listening", bodyText: liveTranscript, mode: .listening)
+                CompanionChatView(viewModel: viewModel)
             case .thinking:
-                CompanionChatView(viewModel: viewModel, title: providerThinkingTitle, bodyText: viewModel.transcript, mode: .thinking)
+                CompanionChatView(viewModel: viewModel)
             case .answer:
-                CompanionChatView(viewModel: viewModel, title: answerTitle, bodyText: viewModel.answer, mode: .answer)
+                CompanionChatView(viewModel: viewModel)
             case .error(let message):
-                CompanionChatView(viewModel: viewModel, title: "Needs attention", bodyText: message, mode: .error)
+                CompanionChatView(viewModel: viewModel, errorMessage: message)
             case .settings:
-                SettingsPanel(viewModel: viewModel)
+                SettingsWithAvatarView(viewModel: viewModel)
             }
         }
         .frame(minWidth: 1, maxWidth: .infinity, minHeight: 1, maxHeight: .infinity)
         .background(Color.clear)
-    }
-
-    private var liveTranscript: String {
-        viewModel.transcript.isEmpty ? "Speak now..." : viewModel.transcript
-    }
-
-    private var providerThinkingTitle: String {
-        if let provider = viewModel.activeProvider {
-            return "\(provider.title) is thinking"
-        }
-        return "Thinking"
-    }
-
-    private var answerTitle: String {
-        if let provider = viewModel.activeProvider {
-            return "\(provider.title) answered"
-        }
-        return "Answered"
     }
 }
 
@@ -93,6 +77,7 @@ struct IdleOrbView: View {
 }
 
 enum CompanionBubbleMode {
+    case chat
     case listening
     case thinking
     case answer
@@ -102,52 +87,26 @@ enum CompanionBubbleMode {
 struct CompanionChatView: View {
     @ObservedObject var viewModel: OrbViewModel
     @EnvironmentObject private var settings: SettingsStore
-    let title: String
-    let bodyText: String
-    let mode: CompanionBubbleMode
-    @State private var metrics: WindowMetrics?
+    var errorMessage: String?
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             Color.clear
             companionLayout
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(WindowMetricsReader(metrics: $metrics))
     }
 
-    @ViewBuilder
     private var companionLayout: some View {
-        switch settings.bubblePlacement {
-        case .above:
-            VStack(spacing: 2) {
-                bubble
-                BubbleTail(direction: .down, tone: mode)
-                avatar
-            }
-            .padding(.top, 28)
-        case .side:
-            if shouldFlipSide {
-                HStack(spacing: 2) {
-                    bubble
-                    BubbleTail(direction: .right, tone: mode)
-                    avatar
-                }
-            } else {
-                HStack(spacing: 2) {
-                    avatar
-                    BubbleTail(direction: .left, tone: mode)
-                    bubble
-                }
-            }
-        case .bottom:
-            VStack(spacing: 2) {
-                avatar
-                BubbleTail(direction: .up, tone: mode)
-                bubble
-            }
-            .padding(.bottom, 28)
+        VStack(spacing: 1) {
+            bubble
+                .zIndex(2)
+            BubbleTail(direction: .down, tone: mode)
+                .zIndex(1)
+            avatar
+                .zIndex(0)
         }
+        .padding(.bottom, 20)
     }
 
     private var avatar: some View {
@@ -164,15 +123,25 @@ struct CompanionChatView: View {
     }
 
     private var bubble: some View {
-        CompanionBubbleView(viewModel: viewModel, title: title, bodyText: bodyText, mode: mode)
-            .frame(maxWidth: settings.bubblePlacement == .side ? 430 : 500)
+        MinimalChatChipView(viewModel: viewModel, mode: mode, errorMessage: errorMessage)
+            .frame(width: 398)
     }
 
-    private var shouldFlipSide: Bool {
-        guard let metrics else {
-            return false
+    private var mode: CompanionBubbleMode {
+        switch viewModel.phase {
+        case .chat:
+            .chat
+        case .listening:
+            .listening
+        case .thinking:
+            .thinking
+        case .answer:
+            .answer
+        case .error:
+            .error
+        case .idle, .settings:
+            .chat
         }
-        return metrics.windowFrame.midX > metrics.visibleFrame.midX
     }
 }
 
@@ -183,123 +152,760 @@ struct CompanionBubbleView: View {
     let mode: CompanionBubbleMode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
-                Image(systemName: statusIcon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(isError ? .pink : .cyan)
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.78))
-                    .lineLimit(1)
-                Spacer(minLength: 10)
-                controls
-            }
+        MinimalChatChipView(viewModel: viewModel, mode: mode, errorMessage: mode == .error ? bodyText : nil)
+    }
+}
 
-            if mode == .listening {
-                ListeningWaveformStrip()
-            } else if mode == .thinking {
-                ThinkingBars()
-            }
+struct MinimalChatChipView: View {
+    @ObservedObject var viewModel: OrbViewModel
+    @EnvironmentObject private var settings: SettingsStore
+    let mode: CompanionBubbleMode
+    let errorMessage: String?
 
-            Text(displayText)
-                .font(.system(size: textSize, weight: isError ? .medium : .regular, design: .rounded))
-                .foregroundStyle(isError ? Color(red: 1, green: 0.82, blue: 0.82) : Color.white.opacity(0.94))
-                .lineLimit(mode == .answer ? 8 : 5)
-                .fixedSize(horizontal: false, vertical: true)
-                .background(PanelDragSurface())
+    var body: some View {
+        VStack(alignment: .leading, spacing: isExpanded ? 8 : 6) {
+            toolbar
+            if isExpanded {
+                expandedChatView
+            } else {
+                compactExchangePreview
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.black.opacity(0.62))
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                .cyan.opacity(isError ? 0.06 : 0.13),
-                                .indigo.opacity(0.12),
-                                .pink.opacity(isError ? 0.14 : 0.08)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(.white.opacity(isError ? 0.24 : 0.18), lineWidth: 1)
-            }
-        )
-        .shadow(color: (isError ? Color.pink : Color.cyan).opacity(0.14), radius: 22, y: 8)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(height: isExpanded ? 292 : nil)
+        .frame(maxHeight: isExpanded ? 292 : 112)
+        .background(chipBackground)
+        .shadow(color: shadowColor, radius: 17, x: 0, y: 8)
+        .animation(.spring(response: 0.26, dampingFraction: 0.86), value: isExpanded)
     }
 
-    @ViewBuilder
-    private var controls: some View {
+    private var toolbar: some View {
         HStack(spacing: 7) {
-            if mode == .listening {
-                Button {
-                    viewModel.stopListeningAndSend()
-                } label: {
-                    Label("Send", systemImage: "paperplane.fill")
-                }
-                .buttonStyle(GlassButtonStyle())
-            } else if mode == .answer || mode == .error {
-                IconCircle(systemName: "doc.on.doc", label: "Copy") {
-                    copyToPasteboard(bodyText)
-                }
-                IconCircle(systemName: "arrow.clockwise", label: "Retry") {
-                    viewModel.retryLastTranscript()
-                }
+            MiniIconButton(
+                systemName: spokenReplyIcon,
+                label: settings.spokenRepliesEnabled ? "Spoken replies on" : "Spoken replies off",
+                isActive: settings.spokenRepliesEnabled
+            ) {
+                viewModel.toggleSpokenReplies()
             }
 
-            IconCircle(systemName: "gearshape.fill", label: "Settings") {
+            providerPill
+
+            Spacer(minLength: 8)
+
+            MiniIconButton(systemName: "gearshape.fill", label: "Settings") {
                 viewModel.openSettings()
             }
-            IconCircle(systemName: "xmark", label: "Collapse") {
+            MiniIconButton(systemName: isExpanded ? "chevron.up" : "chevron.down", label: isExpanded ? "Compact" : "Expand") {
+                viewModel.isChatExpanded.toggle()
+            }
+            MiniIconButton(systemName: "xmark", label: "Close chat") {
                 viewModel.collapse()
             }
         }
+        .frame(height: 24)
     }
 
-    private var displayText: String {
-        let trimmed = bodyText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            switch mode {
-            case .listening: return "Speak now..."
-            case .thinking: return "Working on it..."
-            case .answer: return "I do not have an answer yet."
-            case .error: return "Something needs attention."
+    private var isExpanded: Bool {
+        viewModel.isChatExpanded
+    }
+
+    private var compactExchangePreview: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            transcriptRow
+            chipDivider
+            answerRow
+        }
+    }
+
+    private var chipDivider: some View {
+        Rectangle()
+            .fill(.white.opacity(0.12))
+            .frame(height: 1)
+            .padding(.leading, 22)
+    }
+
+    private var providerPill: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(providerDotColor)
+                .frame(width: 6, height: 6)
+            Text(providerTitle)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.78))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(.white.opacity(0.080), in: Capsule())
+        .overlay(Capsule().stroke(.white.opacity(0.12), lineWidth: 1))
+    }
+
+    private var transcriptRow: some View {
+        HStack(alignment: .top, spacing: 8) {
+            MiniIconButton(
+                systemName: mode == .listening ? "mic.slash.fill" : "mic.fill",
+                label: mode == .listening ? "Stop listening" : "Start listening",
+                isActive: mode == .listening,
+                isDisabled: mode == .thinking
+            ) {
+                if mode == .listening {
+                    viewModel.stopListeningWithoutSubmitting()
+                } else {
+                    viewModel.startListening()
+                }
+            }
+
+            ZStack(alignment: .leading) {
+                if viewModel.typedPrompt.isEmpty {
+                    Text(inputDisplayText)
+                        .font(.system(size: 13, weight: inputDisplayIsPlaceholder ? .regular : .medium, design: .rounded))
+                        .foregroundStyle(inputDisplayIsPlaceholder ? .white.opacity(0.46) : .white.opacity(0.90))
+                        .lineLimit(1)
+                        .allowsHitTesting(false)
+                }
+
+                TextField("", text: Binding(
+                    get: { viewModel.typedPrompt },
+                    set: { viewModel.updateTypedPromptFromUser($0) }
+                ))
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.92))
+                .lineLimit(1)
+                .onSubmit {
+                    viewModel.submitTypedPrompt()
+                }
+            }
+
+            MiniIconButton(systemName: "doc.on.doc", label: "Copy input", isDisabled: inputTextIsEmpty) {
+                copyToPasteboard(inputCopyText)
+            }
+            MiniIconButton(systemName: "paperplane.fill", label: "Send input", isDisabled: sendTextIsEmpty) {
+                viewModel.submitTypedPrompt()
             }
         }
-        return trimmed
+        .frame(minHeight: 24, alignment: .top)
     }
 
-    private var statusIcon: String {
-        switch mode {
-        case .listening: return "waveform"
-        case .thinking: return "sparkles"
-        case .answer: return "quote.bubble.fill"
-        case .error: return "exclamationmark.triangle.fill"
+    private var answerRow: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: answerIcon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(answerIconColor)
+                .frame(width: 14, height: 18)
+
+            answerTextView
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            MiniIconButton(systemName: "doc.on.doc", label: "Copy answer", isDisabled: answerCopyText.isEmpty) {
+                copyToPasteboard(answerCopyText)
+            }
+        }
+        .frame(minHeight: 24, alignment: .top)
+    }
+
+    @ViewBuilder
+    private var answerTextView: some View {
+        if isExpanded {
+            ScrollView(.vertical, showsIndicators: true) {
+                Text(answerText)
+                    .font(.system(size: 13, weight: mode == .error ? .medium : .regular, design: .rounded))
+                    .foregroundStyle(answerTextColor)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.trailing, 8)
+            }
+            .frame(height: 96)
+            .overlay(alignment: .trailing) {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(.white.opacity(0.16))
+                    .frame(width: 2)
+            }
+        } else {
+            if mode == .thinking {
+                ThinkingDotsText(prefix: "\(thinkingProviderTitle) thinking")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.yellow.opacity(0.84))
+                    .lineLimit(1)
+            } else {
+                Text(answerText)
+                    .font(.system(size: 13, weight: mode == .error ? .medium : .regular, design: .rounded))
+                    .foregroundStyle(answerTextColor)
+                    .lineLimit(1)
+            }
         }
     }
 
-    private var isError: Bool {
-        mode == .error
+    private var expandedChatView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            expandedChatTranscript
+            chipDivider
+            pinnedChatInputRow
+        }
     }
 
-    private var textSize: CGFloat {
-        switch mode {
-        case .listening: 18
-        case .thinking: 16
-        case .answer: 16
-        case .error: 14
+    private var expandedChatTranscript: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 9) {
+                    if viewModel.sessionExchanges.isEmpty {
+                        emptySessionView
+                    } else {
+                        ForEach(viewModel.sessionExchanges) { exchange in
+                            chatExchangeView(exchange)
+                                .id(exchange.id)
+                        }
+                    }
+
+                    if shouldShowDraftInSession {
+                        draftBubbleView
+                            .id("draft")
+                    }
+
+                    Color.clear
+                        .frame(height: 1)
+                        .id("session-bottom")
+                }
+                .padding(.trailing, 8)
+            }
+            .frame(height: 188)
+            .overlay(alignment: .trailing) {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(.white.opacity(0.16))
+                    .frame(width: 2)
+            }
+            .onAppear {
+                scrollToLatestChatAnchor(proxy)
+            }
+            .onChange(of: viewModel.sessionExchanges) { _ in
+                withAnimation(.easeOut(duration: 0.18)) {
+                    scrollToLatestChatAnchor(proxy)
+                }
+            }
+            .onChange(of: viewModel.typedPrompt) { _ in
+                withAnimation(.easeOut(duration: 0.18)) {
+                    scrollToLatestChatAnchor(proxy)
+                }
+            }
         }
+    }
+
+    private var emptySessionView: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "mic.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.cyan.opacity(0.75))
+                .frame(width: 14)
+            Text("Ask by voice or type a question.")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.56))
+        }
+        .padding(.top, 4)
+    }
+
+    private func chatExchangeView(_ exchange: SessionExchange) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            ChatMessageBubble(
+                text: exchange.question,
+                metadata: "You",
+                side: .user,
+                iconName: "waveform",
+                isError: false,
+                copyAction: { copyToPasteboard(exchange.question) }
+            )
+
+            ChatMessageBubble(
+                text: exchangeAnswerText(for: exchange),
+                metadata: "\(exchange.provider?.title ?? thinkingProviderTitle) · \(exchangeStatusTitle(for: exchange))",
+                side: .assistant,
+                iconName: exchangeIcon(for: exchange),
+                isError: isFailed(exchange),
+                isThinking: isPending(exchange),
+                copyAction: { copyToPasteboard(exchange.answer) },
+                isCopyDisabled: exchange.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var draftBubbleView: some View {
+        ChatMessageBubble(
+            text: viewModel.typedPrompt,
+            metadata: mode == .listening ? "Listening draft" : "Draft",
+            side: .user,
+            iconName: mode == .listening ? "mic.fill" : "keyboard",
+            isError: false,
+            copyAction: { copyToPasteboard(viewModel.typedPrompt) }
+        )
+        .padding(.vertical, 2)
+    }
+
+    private var pinnedChatInputRow: some View {
+        HStack(alignment: .center, spacing: 8) {
+            MiniIconButton(
+                systemName: mode == .listening ? "mic.slash.fill" : "mic.fill",
+                label: mode == .listening ? "Stop listening" : "Start listening",
+                isActive: mode == .listening,
+                isDisabled: mode == .thinking
+            ) {
+                if mode == .listening {
+                    viewModel.stopListeningWithoutSubmitting()
+                } else {
+                    viewModel.startListening()
+                }
+            }
+
+            TextField(inputPlaceholder, text: Binding(
+                get: { viewModel.typedPrompt },
+                set: { viewModel.updateTypedPromptFromUser($0) }
+            ))
+            .textFieldStyle(.plain)
+            .font(.system(size: 12.5, weight: .medium, design: .rounded))
+            .foregroundStyle(.white.opacity(0.92))
+            .onSubmit {
+                viewModel.submitTypedPrompt()
+            }
+
+            MiniIconButton(systemName: "paperplane.fill", label: "Send input", isDisabled: sendTextIsEmpty) {
+                viewModel.submitTypedPrompt()
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .background(.white.opacity(0.055), in: Capsule())
+        .overlay(Capsule().stroke(.white.opacity(0.10), lineWidth: 1))
+    }
+
+    private var chipBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.black.opacity(0.66))
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.10, green: 0.55, blue: 0.54).opacity(mode == .error ? 0.08 : 0.17),
+                            Color(red: 0.02, green: 0.14, blue: 0.15).opacity(0.40),
+                            Color(red: 0.74, green: 0.92, blue: 0.82).opacity(0.055)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.20),
+                            .cyan.opacity(mode == .error ? 0.10 : 0.28),
+                            .white.opacity(0.10)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+    }
+
+    private var providerTitle: String {
+        viewModel.activeProvider?.title ?? settings.provider.title
+    }
+
+    private var providerDotColor: Color {
+        switch mode {
+        case .error:
+            return .pink
+        case .thinking:
+            return .yellow
+        case .listening:
+            return .cyan
+        case .answer:
+            return .green
+        case .chat:
+            return .white.opacity(0.48)
+        }
+    }
+
+    private var inputPlaceholder: String {
+        switch mode {
+        case .chat:
+            return "Type or tap mic..."
+        case .listening:
+            return "Listening..."
+        case .thinking, .answer, .error:
+            return "Type a follow-up..."
+        }
+    }
+
+    private var inputDisplayText: String {
+        let draft = viewModel.typedPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !draft.isEmpty {
+            return draft
+        }
+        let submitted = viewModel.currentSubmittedQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !submitted.isEmpty {
+            return submitted
+        }
+        if !viewModel.inputStatusMessage.isEmpty {
+            return viewModel.inputStatusMessage
+        }
+        return inputPlaceholder
+    }
+
+    private var inputDisplayIsPlaceholder: Bool {
+        viewModel.typedPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            viewModel.currentSubmittedQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var inputCopyText: String {
+        let typed = viewModel.typedPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !typed.isEmpty {
+            return typed
+        }
+        return viewModel.currentSubmittedQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var inputTextIsEmpty: Bool {
+        inputCopyText.isEmpty
+    }
+
+    private var sendTextIsEmpty: Bool {
+        viewModel.typedPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var shouldShowDraftInSession: Bool {
+        !viewModel.typedPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var answerText: String {
+        if let errorMessage, mode == .error {
+            return errorMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let trimmedAnswer = viewModel.currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if mode == .thinking {
+            return "\(thinkingProviderTitle) thinking..."
+        }
+        if !trimmedAnswer.isEmpty {
+            return trimmedAnswer
+        }
+        switch mode {
+        case .chat:
+            return "Waiting for your question..."
+        case .listening:
+            return "I will answer after you finish."
+        case .thinking:
+            return "Thinking..."
+        case .answer:
+            return "I do not have an answer yet."
+        case .error:
+            return "Something needs attention."
+        }
+    }
+
+    private var answerCopyText: String {
+        if mode == .error {
+            return errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+        return viewModel.currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func exchangeAnswerText(for exchange: SessionExchange) -> String {
+        switch exchange.status {
+        case .pending:
+            return exchange.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Thinking..." : exchange.answer
+        case .answered:
+            return exchange.answer
+        case .failed(let message):
+            return message
+        }
+    }
+
+    private func exchangeStatusTitle(for exchange: SessionExchange) -> String {
+        switch exchange.status {
+        case .pending:
+            return "Thinking"
+        case .answered:
+            return "Answered"
+        case .failed:
+            return "Needs attention"
+        }
+    }
+
+    private func exchangeIcon(for exchange: SessionExchange) -> String {
+        switch exchange.status {
+        case .pending:
+            return "sparkles"
+        case .answered:
+            return "sparkles"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private func exchangeIconColor(for exchange: SessionExchange) -> Color {
+        switch exchange.status {
+        case .pending:
+            return .yellow.opacity(0.82)
+        case .answered:
+            return .cyan.opacity(0.78)
+        case .failed:
+            return .pink.opacity(0.88)
+        }
+    }
+
+    private func exchangeAnswerColor(for exchange: SessionExchange) -> Color {
+        switch exchange.status {
+        case .failed:
+            return Color(red: 1, green: 0.82, blue: 0.82)
+        default:
+            return .white.opacity(0.76)
+        }
+    }
+
+    private func isFailed(_ exchange: SessionExchange) -> Bool {
+        if case .failed = exchange.status {
+            return true
+        }
+        return false
+    }
+
+    private func isPending(_ exchange: SessionExchange) -> Bool {
+        if case .pending = exchange.status {
+            return true
+        }
+        return false
+    }
+
+    private var thinkingProviderTitle: String {
+        switch settings.provider {
+        case .auto:
+            return "Provider"
+        case .codex:
+            return "Codex"
+        case .claude:
+            return "Claude"
+        }
+    }
+
+    private func scrollToLatestChatAnchor(_ proxy: ScrollViewProxy) {
+        if shouldShowDraftInSession {
+            proxy.scrollTo("draft", anchor: .top)
+        } else if let latestID = viewModel.sessionExchanges.last?.id {
+            proxy.scrollTo(latestID, anchor: .top)
+        } else {
+            proxy.scrollTo("session-bottom", anchor: .bottom)
+        }
+    }
+
+    private var answerIcon: String {
+        switch mode {
+        case .thinking:
+            return "sparkles"
+        case .error:
+            return "exclamationmark.triangle.fill"
+        default:
+            return "sparkles"
+        }
+    }
+
+    private var answerIconColor: Color {
+        mode == .error ? .pink.opacity(0.88) : .cyan.opacity(0.78)
+    }
+
+    private var answerTextColor: Color {
+        mode == .error ? Color(red: 1, green: 0.82, blue: 0.82) : .white.opacity(0.78)
+    }
+
+    private var spokenReplyIcon: String {
+        settings.spokenRepliesEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"
+    }
+
+    private var shadowColor: Color {
+        mode == .error ? .pink.opacity(0.12) : .cyan.opacity(0.12)
     }
 
     private func copyToPasteboard(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return
+        }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.setString(trimmed, forType: .string)
+    }
+}
+
+enum ChatBubbleSide {
+    case user
+    case assistant
+}
+
+struct ChatMessageBubble: View {
+    let text: String
+    let metadata: String
+    let side: ChatBubbleSide
+    let iconName: String
+    var isError = false
+    var isThinking = false
+    let copyAction: () -> Void
+    var isCopyDisabled = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            if side == .user {
+                Spacer(minLength: 36)
+            }
+
+            bubble
+                .frame(maxWidth: 308, alignment: side == .user ? .trailing : .leading)
+
+            if side == .assistant {
+                Spacer(minLength: 36)
+            }
+        }
+    }
+
+    private var bubble: some View {
+        VStack(alignment: side == .user ? .trailing : .leading, spacing: 5) {
+            HStack(spacing: 5) {
+                if side == .assistant {
+                    Image(systemName: iconName)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                }
+
+                Text(metadata)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(metadataColor)
+                    .lineLimit(1)
+
+                if side == .user {
+                    Image(systemName: iconName)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                }
+            }
+
+            HStack(alignment: .top, spacing: 6) {
+                if side == .user {
+                    MiniIconButton(
+                        systemName: "doc.on.doc",
+                        label: "Copy question",
+                        isDisabled: isCopyDisabled
+                    ) {
+                        copyAction()
+                    }
+                }
+
+                if isThinking {
+                    ThinkingDotsText(prefix: "Thinking")
+                        .font(.system(size: 12.2, weight: .medium, design: .rounded))
+                        .foregroundStyle(.yellow.opacity(0.84))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(side == .user ? .trailing : .leading)
+                } else {
+                    Text(text)
+                        .font(.system(size: 12.2, weight: side == .user ? .medium : .regular, design: .rounded))
+                        .foregroundStyle(textColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(side == .user ? .trailing : .leading)
+                }
+
+                if side == .assistant {
+                    MiniIconButton(
+                        systemName: "doc.on.doc",
+                        label: "Copy answer",
+                        isDisabled: isCopyDisabled
+                    ) {
+                        copyAction()
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(backgroundShape)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(strokeColor, lineWidth: 1)
+        )
+    }
+
+    private var backgroundShape: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: backgroundColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+    }
+
+    private var backgroundColors: [Color] {
+        switch side {
+        case .user:
+            return [
+                Color(red: 0.12, green: 0.42, blue: 0.43).opacity(0.54),
+                Color(red: 0.04, green: 0.19, blue: 0.21).opacity(0.76)
+            ]
+        case .assistant:
+            if isError {
+                return [
+                    Color(red: 0.35, green: 0.10, blue: 0.16).opacity(0.54),
+                    Color(red: 0.10, green: 0.06, blue: 0.08).opacity(0.76)
+                ]
+            }
+            return [
+                Color.white.opacity(0.075),
+                Color(red: 0.02, green: 0.15, blue: 0.16).opacity(0.62)
+            ]
+        }
+    }
+
+    private var strokeColor: Color {
+        switch side {
+        case .user:
+            return .cyan.opacity(0.18)
+        case .assistant:
+            return isError ? .pink.opacity(0.18) : .white.opacity(0.12)
+        }
+    }
+
+    private var metadataColor: Color {
+        switch side {
+        case .user:
+            return .white.opacity(0.58)
+        case .assistant:
+            return isError ? .pink.opacity(0.78) : .cyan.opacity(0.70)
+        }
+    }
+
+    private var iconColor: Color {
+        switch side {
+        case .user:
+            return .cyan.opacity(0.70)
+        case .assistant:
+            return isError ? .pink.opacity(0.82) : .cyan.opacity(0.72)
+        }
+    }
+
+    private var textColor: Color {
+        isError ? Color(red: 1, green: 0.82, blue: 0.82) : .white.opacity(side == .user ? 0.90 : 0.78)
+    }
+}
+
+struct ThinkingDotsText: View {
+    let prefix: String
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.36)) { context in
+            let tick = Int(context.date.timeIntervalSinceReferenceDate / 0.36) % 4
+            Text(prefix + String(repeating: ".", count: max(tick, 1)))
+        }
     }
 }
 
@@ -406,6 +1012,29 @@ final class WindowMetricsNSView: NSView {
     }
 }
 
+struct SettingsWithAvatarView: View {
+    @ObservedObject var viewModel: OrbViewModel
+    @EnvironmentObject private var settings: SettingsStore
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            SettingsPanel(viewModel: viewModel)
+
+            AvatarVisual(style: settings.avatarStyle, size: 82, phase: .idle, motion: .idle)
+                .overlay(
+                    ClickDragOverlay(
+                        onClick: { viewModel.closeSettings() },
+                        onHoldStart: { viewModel.holdBegan() },
+                        onHoldEnd: { viewModel.holdEnded() },
+                        onDragStart: { viewModel.dragStarted() },
+                        onDragEnd: { viewModel.dragEnded() }
+                    )
+                )
+                .padding(18)
+        }
+    }
+}
+
 struct SettingsPanel: View {
     @ObservedObject var viewModel: OrbViewModel
     @EnvironmentObject private var settings: SettingsStore
@@ -453,12 +1082,6 @@ struct SettingsPanel: View {
                 Picker("Assistant", selection: $settings.avatarStyle) {
                     ForEach(AvatarStyle.allCases) { style in
                         Text(style.title).tag(style)
-                    }
-                }
-
-                Picker("Chat bubble", selection: $settings.bubblePlacement) {
-                    ForEach(BubblePlacement.allCases) { placement in
-                        Text(placement.title).tag(placement)
                     }
                 }
 
@@ -709,7 +1332,7 @@ struct GlassMascotVisual: View {
 
     private var spriteState: MascotSpriteState {
         switch phase {
-        case .idle:
+        case .idle, .chat:
             motion.isRunning ? .run : .idle
         case .listening:
             .listening
@@ -901,7 +1524,7 @@ struct OrbVisual: View {
 
     private var rippleCount: Int {
         switch phase {
-        case .idle, .settings:
+        case .idle, .chat, .settings:
             return 3
         case .listening:
             return 5
@@ -916,7 +1539,7 @@ struct OrbVisual: View {
 
     private var rippleStrength: Double {
         switch phase {
-        case .idle, .settings:
+        case .idle, .chat, .settings:
             return 0.82
         case .listening:
             return 1.24
@@ -931,7 +1554,7 @@ struct OrbVisual: View {
 
     private var rippleBaseScale: CGFloat {
         switch phase {
-        case .idle, .settings, .error:
+        case .idle, .chat, .settings, .error:
             return 0.64
         case .thinking:
             return 0.67
@@ -942,7 +1565,7 @@ struct OrbVisual: View {
 
     private var rippleStep: CGFloat {
         switch phase {
-        case .idle, .settings, .error:
+        case .idle, .chat, .settings, .error:
             return 0.052
         case .thinking:
             return 0.070
@@ -963,7 +1586,7 @@ struct OrbVisual: View {
             return 0.062
         case .error:
             return 0.042
-        case .idle, .settings:
+        case .idle, .chat, .settings:
             return 0.055
         }
     }
@@ -1205,7 +1828,7 @@ private struct OrbLensRefraction: View {
             return 1.05
         case .thinking, .answer:
             return 0.70
-        case .idle, .settings, .error:
+        case .idle, .chat, .settings, .error:
             return 0.34
         }
     }
@@ -1216,7 +1839,7 @@ private struct OrbLensRefraction: View {
             return 1.18
         case .thinking, .answer:
             return 1.06
-        case .idle, .settings:
+        case .idle, .chat, .settings:
             return 0.94
         case .error:
             return 0.80
@@ -1702,6 +2325,50 @@ struct IconCircle: View {
         }
         .buttonStyle(.plain)
         .help(label)
+    }
+}
+
+struct MiniIconButton: View {
+    let systemName: String
+    let label: String
+    var isActive = false
+    var isDisabled = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 10.5, weight: .bold))
+                .foregroundStyle(foregroundColor)
+                .frame(width: 22, height: 22)
+                .background(backgroundColor, in: Circle())
+                .overlay(Circle().stroke(strokeColor, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.38 : 1)
+        .help(label)
+    }
+
+    private var foregroundColor: Color {
+        if isActive {
+            return .cyan.opacity(0.96)
+        }
+        return .white.opacity(0.78)
+    }
+
+    private var backgroundColor: Color {
+        if isActive {
+            return .cyan.opacity(0.13)
+        }
+        return .white.opacity(0.075)
+    }
+
+    private var strokeColor: Color {
+        if isActive {
+            return .cyan.opacity(0.28)
+        }
+        return .white.opacity(0.12)
     }
 }
 

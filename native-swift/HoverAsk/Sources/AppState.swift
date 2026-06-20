@@ -14,6 +14,12 @@ final class OrbViewModel: ObservableObject {
     }
     @Published var transcript = ""
     @Published var answer = ""
+    @Published var typedPrompt = ""
+    @Published var currentSubmittedQuestion = ""
+    @Published var currentAnswer = ""
+    @Published var sessionExchanges: [SessionExchange] = []
+    @Published var inputStatusMessage = ""
+    @Published var isChatExpanded = false
     @Published var activeProvider: AssistantProvider?
     @Published var providerHealth: [ProviderHealth] = []
     @Published var companionVisualMotion = CompanionVisualMotion.idle
@@ -28,6 +34,7 @@ final class OrbViewModel: ObservableObject {
     private weak var windowController: OrbWindowController?
     private var assistantTask: Task<Void, Never>?
     private var interactionToken = UUID()
+    private var activeExchangeID: UUID?
     private var isDismissedByUser = false
     private var cancellables = Set<AnyCancellable>()
 
@@ -50,16 +57,12 @@ final class OrbViewModel: ObservableObject {
 
     func primaryOrbAction() {
         switch phase {
-        case .idle, .answer, .error:
+        case .idle:
             startListening()
-        case .listening:
-            if settings.listenMode == .manualStop {
-                stopListeningAndSend()
-            }
-        case .thinking:
-            break
-        case .settings:
+        case .chat, .listening, .thinking, .answer, .error:
             collapse()
+        case .settings:
+            closeSettings()
         }
     }
 
@@ -78,22 +81,66 @@ final class OrbViewModel: ObservableObject {
     }
 
     func startListening() {
+        guard phase != .thinking else {
+            return
+        }
         isDismissedByUser = false
         interactionToken = UUID()
         assistantTask?.cancel()
+        activeExchangeID = nil
         motionController.pause(for: 1.0)
         speechOutput.stop()
-        transcript = ""
-        answer = ""
-        activeProvider = nil
+        typedPrompt = ""
+        inputStatusMessage = ""
         phase = .listening
 
         let autoStop = settings.listenMode != .manualStop
         speechService.start(locale: settings.voiceLocale, autoStopOnSilence: autoStop)
     }
 
+    func openChat() {
+        startListening()
+    }
+
     func stopListeningAndSend() {
         speechService.stopAndSubmit()
+    }
+
+    func stopListeningWithoutSubmitting() {
+        speechService.stop(cancel: true)
+        typedPrompt = ""
+        inputStatusMessage = ""
+        phase = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .chat : .answer
+    }
+
+    func updateTypedPromptFromUser(_ text: String) {
+        if phase == .listening {
+            speechService.stop(cancel: true)
+            inputStatusMessage = ""
+            phase = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .chat : .answer
+        }
+        typedPrompt = text
+    }
+
+    func toggleSpokenReplies() {
+        settings.spokenRepliesEnabled.toggle()
+        if !settings.spokenRepliesEnabled {
+            speechOutput.stop()
+        }
+    }
+
+    func submitTypedPrompt() {
+        let prompt = typedPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else {
+            return
+        }
+
+        interactionToken = UUID()
+        assistantTask?.cancel()
+        speechService.stop(cancel: true)
+        speechOutput.stop()
+        typedPrompt = ""
+        submitPrompt(prompt)
     }
 
     func collapse() {
@@ -102,6 +149,9 @@ final class OrbViewModel: ObservableObject {
         assistantTask?.cancel()
         speechService.stop(cancel: true)
         speechOutput.stop()
+        typedPrompt = ""
+        inputStatusMessage = ""
+        isChatExpanded = false
         motionController.pause(for: 0.8)
         phase = .idle
     }
@@ -110,15 +160,18 @@ final class OrbViewModel: ObservableObject {
         isDismissedByUser = true
         interactionToken = UUID()
         assistantTask?.cancel()
+        activeExchangeID = nil
         speechService.stop(cancel: true)
         speechOutput.stop()
         motionController.pause(for: 1.2)
         phase = .idle
+        isChatExpanded = false
         windowController?.hide()
     }
 
     func showOrb() {
         isDismissedByUser = false
+        windowController?.centerOnVisibleScreen()
         windowController?.apply(phase: phase)
     }
 
@@ -150,6 +203,8 @@ final class OrbViewModel: ObservableObject {
         interactionToken = UUID()
         speechService.stop(cancel: true)
         speechOutput.stop()
+        typedPrompt = ""
+        inputStatusMessage = ""
         refreshHealth()
         phase = .settings
     }
@@ -163,7 +218,7 @@ final class OrbViewModel: ObservableObject {
     }
 
     func retryLastTranscript() {
-        let prompt = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = currentSubmittedQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else {
             startListening()
             return
@@ -172,7 +227,7 @@ final class OrbViewModel: ObservableObject {
         assistantTask?.cancel()
         speechService.stop(cancel: true)
         speechOutput.stop()
-        askAssistant(prompt)
+        submitPrompt(prompt)
     }
 
     func refreshHealth() {
@@ -197,7 +252,8 @@ final class OrbViewModel: ObservableObject {
     private func configureSpeechCallbacks() {
         speechService.onPartial = { [weak self] text in
             Task { @MainActor in
-                self?.transcript = text
+                self?.typedPrompt = text
+                self?.inputStatusMessage = ""
             }
         }
 
@@ -209,7 +265,7 @@ final class OrbViewModel: ObservableObject {
 
         speechService.onError = { [weak self] message in
             Task { @MainActor in
-                self?.phase = .error(message)
+                self?.handleListeningError(message)
             }
         }
     }
@@ -246,15 +302,41 @@ final class OrbViewModel: ObservableObject {
     private func handleFinalTranscript(_ text: String) {
         let finalText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !finalText.isEmpty else {
-            phase = .error("I did not catch anything. Try again closer to the microphone.")
+            typedPrompt = ""
+            inputStatusMessage = "Didn't catch that."
+            phase = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .chat : .answer
             return
         }
 
-        transcript = finalText
-        askAssistant(finalText)
+        typedPrompt = ""
+        submitPrompt(finalText)
     }
 
-    private func askAssistant(_ prompt: String) {
+    private func handleListeningError(_ message: String) {
+        typedPrompt = ""
+        inputStatusMessage = message
+        phase = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .chat : .answer
+    }
+
+    private func submitPrompt(_ prompt: String) {
+        inputStatusMessage = ""
+        currentSubmittedQuestion = prompt
+        transcript = prompt
+        let exchangeID = UUID()
+        activeExchangeID = exchangeID
+        sessionExchanges.append(
+            SessionExchange(
+                id: exchangeID,
+                question: prompt,
+                answer: "",
+                provider: nil,
+                status: .pending
+            )
+        )
+        askAssistant(prompt, exchangeID: exchangeID)
+    }
+
+    private func askAssistant(_ prompt: String, exchangeID: UUID) {
         phase = .thinking
         let requestToken = interactionToken
         let providerSelection = settings.provider
@@ -266,6 +348,8 @@ final class OrbViewModel: ObservableObject {
                 if Task.isCancelled { return }
                 activeProvider = result.provider
                 answer = result.text
+                currentAnswer = result.text
+                updateSessionExchange(id: exchangeID, answer: result.text, provider: result.provider, status: .answered)
                 phase = .answer
 
                 if settings.historyEnabled {
@@ -281,6 +365,7 @@ final class OrbViewModel: ObservableObject {
                 }
             } catch {
                 if Task.isCancelled { return }
+                updateSessionExchange(id: exchangeID, answer: "", provider: nil, status: .failed(error.localizedDescription))
                 phase = .error(error.localizedDescription)
             }
         }
@@ -303,5 +388,14 @@ final class OrbViewModel: ObservableObject {
             return
         }
         startListening()
+    }
+
+    private func updateSessionExchange(id: UUID, answer: String, provider: AssistantProvider?, status: SessionExchangeStatus) {
+        guard let index = sessionExchanges.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        sessionExchanges[index].answer = answer
+        sessionExchanges[index].provider = provider
+        sessionExchanges[index].status = status
     }
 }

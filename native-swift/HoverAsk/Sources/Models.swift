@@ -245,6 +245,7 @@ struct ProviderRuntimeOptions {
 
 enum OrbPhase: Equatable {
     case idle
+    case chat
     case listening
     case thinking
     case answer
@@ -267,6 +268,20 @@ struct HistoryItem: Codable, Identifiable, Equatable {
     let provider: AssistantProvider
     let prompt: String
     let answer: String
+}
+
+enum SessionExchangeStatus: Equatable {
+    case pending
+    case answered
+    case failed(String)
+}
+
+struct SessionExchange: Identifiable, Equatable {
+    let id: UUID
+    let question: String
+    var answer: String
+    var provider: AssistantProvider?
+    var status: SessionExchangeStatus
 }
 
 struct AssistantResult {
