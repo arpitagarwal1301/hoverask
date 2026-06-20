@@ -1,6 +1,6 @@
 # GitHub Visual Setup
 
-Use [hoverask-preview.png](assets/hoverask-preview.png) anywhere GitHub needs a visual identity for the project. The image reflects the V1 glass orb, companion avatars, and privacy-first voice positioning.
+Use [hoverask-v1-final-preview.png](assets/hoverask-v1-final-preview.png) anywhere GitHub needs a visual identity for the project. The image reflects the V1 glass orb, companion avatars, and privacy-first voice positioning.
 
 ## README
 
@@ -17,7 +17,7 @@ GitHub's social preview image is set from the repository UI:
 1. Open the repository on GitHub.
 2. Go to `Settings`.
 3. Find `Social preview`.
-4. Upload `docs/assets/hoverask-preview.png`.
+4. Upload `docs/assets/hoverask-v1-final-preview.png`.
 5. Save the change.
 
 This image is what GitHub uses when the repository link is shared on Slack, WhatsApp, X, LinkedIn, and other preview surfaces.
