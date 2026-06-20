@@ -1,0 +1,38 @@
+.DS_Store
+*.log
+*.tmp
+*.swp
+.env
+.env.*
+
+# Build outputs and local artifacts
+/out/
+/outputs/
+/build/
+/dist/
+/DerivedData/
+*.app/
+*.dSYM/
+*.zip
+
+# Node/Electron prototype dependencies and generated files
+/node_modules/
+/package.json
+/package-lock.json
+/electron.vite.config.ts
+/tsconfig.json
+/src/
+/scripts/
+/native/
+
+# Swift and Xcode local state
+.build/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Local scratch/work directories
+/work/
+/tmp/
+/.cache/
