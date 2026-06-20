@@ -1,6 +1,6 @@
 # Privacy
 
-HoverAsk V1 is designed as a local personal prototype.
+HoverAsk is designed as a local personal prototype.
 
 ## What HoverAsk Does
 
@@ -15,7 +15,7 @@ HoverAsk V1 is designed as a local personal prototype.
 - Does not capture screenshots.
 - Does not read browser pages.
 - Does not scrape websites.
-- Does not collect API keys.
+- Does not collect API keys in the current release.
 - Does not run a remote backend owned by this app.
 
 ## Local Storage
@@ -34,5 +34,8 @@ When a provider is used, the prompt is passed to the installed CLI:
 
 - Codex through `codex exec`.
 - Claude through `claude -p`.
+- Cursor through `cursor-agent`.
+- OpenCode through `opencode`.
+- Antigravity through `agy`.
 
 Those tools may communicate with their own services according to the account, product, and provider terms configured on the user's machine.

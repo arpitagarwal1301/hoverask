@@ -16,6 +16,11 @@ final class HistoryStore: ObservableObject {
         load()
     }
 
+    var storageSizeBytes: Int64 {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+        return attributes?[.size] as? Int64 ?? 0
+    }
+
     func add(prompt: String, answer: String, provider: AssistantProvider) {
         let item = HistoryItem(id: UUID(), createdAt: Date(), provider: provider, prompt: prompt, answer: answer)
         items.insert(item, at: 0)

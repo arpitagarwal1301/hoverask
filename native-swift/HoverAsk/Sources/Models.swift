@@ -4,6 +4,9 @@ enum ProviderSelection: String, CaseIterable, Codable, Identifiable {
     case auto
     case codex
     case claude
+    case cursor
+    case opencode
+    case antigravity
 
     var id: String { rawValue }
 
@@ -12,6 +15,26 @@ enum ProviderSelection: String, CaseIterable, Codable, Identifiable {
         case .auto: "Auto"
         case .codex: "Codex"
         case .claude: "Claude"
+        case .cursor: "Cursor"
+        case .opencode: "OpenCode"
+        case .antigravity: "Antigravity"
+        }
+    }
+
+    var provider: AssistantProvider? {
+        switch self {
+        case .auto:
+            return nil
+        case .codex:
+            return .codex
+        case .claude:
+            return .claude
+        case .cursor:
+            return .cursor
+        case .opencode:
+            return .opencode
+        case .antigravity:
+            return .antigravity
         }
     }
 }
@@ -19,6 +42,9 @@ enum ProviderSelection: String, CaseIterable, Codable, Identifiable {
 enum AssistantProvider: String, CaseIterable, Codable, Identifiable {
     case codex
     case claude
+    case cursor
+    case opencode
+    case antigravity
 
     var id: String { rawValue }
 
@@ -26,6 +52,9 @@ enum AssistantProvider: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .codex: "Codex"
         case .claude: "Claude"
+        case .cursor: "Cursor"
+        case .opencode: "OpenCode"
+        case .antigravity: "Antigravity"
         }
     }
 }

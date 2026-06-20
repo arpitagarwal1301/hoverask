@@ -4,32 +4,37 @@
   <img src="docs/assets/hoverask-v1-final-preview.png" alt="HoverAsk preview showing a native macOS floating voice assistant with a refractive glass orb, companion avatars, and anchored answer bubble" width="100%">
 </p>
 
-HoverAsk is a native macOS floating voice assistant that sits above other apps. Tap the glass orb or companion, speak in English or Hinglish, and HoverAsk sends the transcribed question to your logged-in Codex or Claude CLI account. The answer appears in a compact anchored bubble and can be spoken aloud.
+HoverAsk is a native macOS floating voice assistant that sits above other apps. Tap the glass orb or companion, speak in English or Hinglish, and HoverAsk sends the transcribed question to your logged-in local AI CLI account. The answer appears in a compact anchored bubble and can be spoken aloud.
 
-This is a personal/local V1 prototype. It does not use API keys, does not capture screenshots, and does not scrape browser content.
+This is a personal/local prototype. It does not use API keys yet, does not capture screenshots, and does not scrape browser content.
 
 ## Download
 
 Download the latest macOS build from the GitHub release:
 
-- [HoverAsk-v1.0.0-macos.dmg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.0.0/HoverAsk-v1.0.0-macos.dmg)
-- [HoverAsk v1.0.0 release page](https://github.com/arpitagarwal1301/hoverask/releases/tag/v1.0.0)
+- [HoverAsk-v1.1.0-macos.dmg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.1.0/HoverAsk-v1.1.0-macos.dmg)
+- [HoverAsk v1.1.0 release page](https://github.com/arpitagarwal1301/hoverask/releases/tag/v1.1.0)
 
-Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The V1 app is ad-hoc signed for local testing, not Developer ID notarized yet, so macOS may require right-clicking the app and choosing Open on first launch.
+Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The app is ad-hoc signed for local testing, not Developer ID notarized yet, so macOS may require right-clicking the app and choosing Open on first launch.
 
 ## Features
 
 - Native SwiftUI/AppKit macOS app with a floating always-on-top panel.
 - Voice-first question flow using macOS Speech Recognition and microphone input.
 - Spoken replies using the built-in macOS speech synthesizer.
-- Provider choices: Auto, Codex, or Claude.
+- Provider choices: Auto, Codex, Claude, Cursor, OpenCode, or Antigravity when the matching CLI is ready.
 - Account-backed execution through local CLIs:
   - `codex exec`
   - `claude -p`
+  - `cursor-agent`
+  - `opencode`
+  - `agy`
+- CLI provider status rows with install/info/login affordances.
 - Minimal avatars: Glass Orb, Glass Dog, and Glass Cat.
 - Privacy-safe refractive glass orb with visible idle/listening rings.
 - Optional companion movement: stationary, roam, or chase cursor.
-- Local settings and optional local history.
+- More readable glass settings, local history size, and incremental history loading.
+- BYOK/API-key providers are planned for a future Keychain-backed implementation.
 
 ## Requirements
 
@@ -37,6 +42,9 @@ Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The V1 app 
 - Xcode Command Line Tools with `swiftc`.
 - A logged-in Codex CLI account for Codex provider support.
 - A logged-in Claude Code CLI account for Claude provider support.
+- Optional logged-in Cursor CLI account for Cursor provider support.
+- Optional configured OpenCode CLI for OpenCode provider support.
+- Optional Antigravity CLI for Antigravity provider support.
 - Microphone and Speech Recognition permissions granted to HoverAsk on first launch.
 
 ## Build
@@ -68,12 +76,12 @@ native-swift/HoverAsk/Scripts/package-dmg.sh
 The DMG is created at:
 
 ```bash
-outputs/HoverAsk-v1.0.0-macos.dmg
+outputs/HoverAsk-v1.1.0-macos.dmg
 ```
 
 ## Provider Auth
 
-HoverAsk does not ask for API keys. It shells out to locally installed CLIs that are already logged in.
+HoverAsk does not ask for API keys in this build. It shells out to locally installed CLIs that are already logged in.
 
 For Codex, install and log in to the Codex CLI, then verify:
 
@@ -87,7 +95,17 @@ For Claude, install and log in to Claude Code, then verify:
 claude --version
 ```
 
-You can choose `Auto`, `Codex`, or `Claude` from HoverAsk settings. `Auto` tries Codex first, then falls back to Claude.
+Optional providers:
+
+```bash
+cursor-agent --version
+opencode --version
+agy --version
+```
+
+Only ready providers appear in the provider picker. `Auto` tries ready providers in this order: Codex, Claude, Cursor, OpenCode, then Antigravity.
+
+Google Gemini CLI is not exposed as a runnable CLI provider for individual account sign-in. Gemini is planned for the future BYOK implementation, where keys will be stored in macOS Keychain.
 
 ## Usage
 
@@ -102,9 +120,9 @@ The status menu includes show/hide, settings, and quit controls.
 
 ## Privacy
 
-- No screenshots or screen content are captured in V1.
+- No screenshots or screen content are captured.
 - No browser scraping is performed.
-- No API keys are collected.
+- No API keys are collected in this build.
 - Prompts are sent only to the selected local CLI provider process.
 - Settings and optional history are stored locally under the user's Application Support directory.
 
@@ -116,7 +134,7 @@ HoverAsk includes MIT-licensed Lockpaw visual assets for the Glass Dog and Glass
 
 ## Release Status
 
-V1 is published as a GitHub release for evaluation while branding, assets, and distribution decisions remain under review. HoverAsk is proprietary software; see [LICENSE](LICENSE).
+The current release is published for evaluation while branding, assets, and distribution decisions remain under review. HoverAsk is proprietary software; see [LICENSE](LICENSE).
 
 ## GitHub Visuals
 

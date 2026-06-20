@@ -52,13 +52,17 @@ final class AssistantEngine {
         }
 
         let preparedPrompt = buildPrompt(trimmedPrompt)
-        let providerOrder: [AssistantProvider] = {
+        let baseProviderOrder: [AssistantProvider] = {
             switch selection {
-            case .auto: [.codex, .claude]
+            case .auto: [.codex, .claude, .cursor, .opencode, .antigravity]
             case .codex: [.codex]
             case .claude: [.claude]
+            case .cursor: [.cursor]
+            case .opencode: [.opencode]
+            case .antigravity: [.antigravity]
             }
         }()
+        let providerOrder = selection == .auto ? readyProviders(from: baseProviderOrder) : baseProviderOrder
 
         var lastError = ""
         for provider in providerOrder {
@@ -103,6 +107,14 @@ final class AssistantEngine {
         }
 
         return AssistantResult(provider: provider, text: answer, duration: Date().timeIntervalSince(started))
+    }
+
+    private func readyProviders(from providers: [AssistantProvider]) -> [AssistantProvider] {
+        let ready = providers.filter { provider in
+            let health = processRunner.health(provider: provider)
+            return health.installed && health.authenticated
+        }
+        return ready.isEmpty ? providers : ready
     }
 
     private func providerSpec(_ provider: AssistantProvider, prompt: String, options: ProviderRuntimeOptions) -> (command: String, arguments: [String], stdin: String?) {
@@ -151,6 +163,44 @@ final class AssistantEngine {
                 arguments,
                 nil
             )
+        case .cursor:
+            return (
+                "cursor-agent",
+                [
+                    "--print",
+                    "--mode",
+                    "ask",
+                    "--output-format",
+                    "text",
+                    "--trust",
+                    "--workspace",
+                    runtimeDirectory.path,
+                    prompt
+                ],
+                nil
+            )
+        case .opencode:
+            return (
+                "opencode",
+                [
+                    "run",
+                    "--agent",
+                    "plan",
+                    "--dir",
+                    runtimeDirectory.path,
+                    prompt
+                ],
+                nil
+            )
+        case .antigravity:
+            return (
+                "agy",
+                [
+                    "-p",
+                    prompt
+                ],
+                nil
+            )
         }
     }
 
@@ -188,7 +238,10 @@ struct ProcessOutput {
 
 final class ProcessRunner {
     func health(provider: AssistantProvider) -> ProviderHealth {
-        let version = quickRun(command: command(for: provider), arguments: ["--version"], timeout: 4)
+        var version = quickRun(command: command(for: provider), arguments: ["--version"], timeout: 4)
+        if version.exitCode != 0, provider == .antigravity {
+            version = quickRun(command: command(for: provider), arguments: ["--help"], timeout: 4)
+        }
         guard version.exitCode == 0 else {
             return ProviderHealth(provider: provider, installed: false, authenticated: false, detail: version.stderr + version.stdout)
         }
@@ -199,6 +252,12 @@ final class ProcessRunner {
                 quickRun(command: "codex", arguments: ["login", "status"], timeout: 6)
             case .claude:
                 quickRun(command: "claude", arguments: ["auth", "status"], timeout: 6)
+            case .cursor:
+                quickRun(command: "cursor-agent", arguments: ["status"], timeout: 6)
+            case .opencode:
+                quickRun(command: "opencode", arguments: ["auth", "list"], timeout: 6)
+            case .antigravity:
+                ProcessOutput(stdout: "Installed. Antigravity CLI command agy was found.", stderr: "", exitCode: 0, timedOut: false)
             }
         }()
 
@@ -220,6 +279,15 @@ final class ProcessRunner {
         case .claude:
             executable = "claude"
             arguments = "auth login"
+        case .cursor:
+            executable = "cursor-agent"
+            arguments = "login"
+        case .opencode:
+            executable = "opencode"
+            arguments = "auth login"
+        case .antigravity:
+            executable = "agy"
+            arguments = "login"
         }
 
         let script = """
@@ -307,13 +375,17 @@ final class ProcessRunner {
         switch provider {
         case .codex: "codex"
         case .claude: "claude"
+        case .cursor: "cursor-agent"
+        case .opencode: "opencode"
+        case .antigravity: "agy"
         }
     }
 
     private func environment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         let defaultPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        env["PATH"] = [env["PATH"], defaultPath].compactMap { $0 }.joined(separator: ":")
+        let userLocalPath = "\(NSHomeDirectory())/.local/bin"
+        env["PATH"] = [env["PATH"], userLocalPath, defaultPath].compactMap { $0 }.joined(separator: ":")
         env["NO_COLOR"] = "1"
         return env
     }
@@ -335,6 +407,12 @@ private func isAuthenticated(provider: AssistantProvider, exitCode: Int32, text:
             return loggedIn
         }
         return lower.contains("\"loggedin\":true") || !looksLikeAuthError(text)
+    case .cursor:
+        return lower.contains("logged in") || lower.contains("signed in") || !looksLikeAuthError(text)
+    case .opencode:
+        return !looksLikeAuthError(text) && !lower.contains("no provider") && !lower.contains("not configured") && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    case .antigravity:
+        return true
     }
 }
 

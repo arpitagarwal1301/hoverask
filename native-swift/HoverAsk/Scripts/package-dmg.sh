@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 APP_DIR="$ROOT_DIR/outputs/HoverAsk.app"
 DMG_ROOT="$ROOT_DIR/outputs/HoverAsk-dmg"
-DMG_PATH="$ROOT_DIR/outputs/HoverAsk-v1.0.0-macos.dmg"
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/native-swift/HoverAsk/Resources/Info.plist")"
+DMG_PATH="$ROOT_DIR/outputs/HoverAsk-v${VERSION}-macos.dmg"
 
 if [ ! -d "$APP_DIR" ]; then
   "$ROOT_DIR/native-swift/HoverAsk/Scripts/build.sh"

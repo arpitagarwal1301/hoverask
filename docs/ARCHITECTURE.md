@@ -13,6 +13,9 @@ flowchart TD
   Engine --> Router["Provider Selection"]
   Router --> Codex["Codex CLI: codex exec"]
   Router --> Claude["Claude CLI: claude -p"]
+  Router --> Cursor["Cursor CLI: cursor-agent"]
+  Router --> OpenCode["OpenCode CLI: opencode"]
+  Router --> Antigravity["Antigravity CLI: agy"]
   Engine --> Parser["Stream/Text Parser"]
   Parser --> VM
 ```
@@ -47,11 +50,22 @@ Claude command shape:
 claude -p --output-format stream-json --verbose --include-partial-messages --no-session-persistence --permission-mode dontAsk
 ```
 
+Additional CLI command shapes:
+
+```bash
+cursor-agent --print --mode ask --output-format text --trust --workspace <runtimeDirectory> <prompt>
+opencode run --agent plan --dir <runtimeDirectory> <prompt>
+agy -p <prompt>
+```
+
 Provider selection supports:
 
-- `Auto`: Codex first, Claude fallback.
+- `Auto`: ready providers in Codex, Claude, Cursor, OpenCode, Antigravity order.
 - `Codex`: Codex only.
 - `Claude`: Claude only.
+- `Cursor`: Cursor only when ready.
+- `OpenCode`: OpenCode only when ready.
+- `Antigravity`: Antigravity only when ready.
 
 ## Local State
 
@@ -59,10 +73,10 @@ Provider selection supports:
 - Optional history is stored in Application Support under `HoverAsk`.
 - Provider runtime files are isolated under `HoverAsk/assistant-runtime`.
 
-## V1 Boundaries
+## Current Boundaries
 
 - No screenshots.
 - No browser scraping.
-- No API keys.
+- No API keys in the current release.
 - No remote backend owned by HoverAsk.
 - The orb lens effect is drawn locally and does not sample or magnify real desktop pixels.

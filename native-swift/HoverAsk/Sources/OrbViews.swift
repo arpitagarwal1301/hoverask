@@ -688,6 +688,12 @@ struct MinimalChatChipView: View {
             return "Codex"
         case .claude:
             return "Claude"
+        case .cursor:
+            return "Cursor"
+        case .opencode:
+            return "OpenCode"
+        case .antigravity:
+            return "Antigravity"
         }
     }
 
@@ -1039,6 +1045,7 @@ struct SettingsPanel: View {
     @ObservedObject var viewModel: OrbViewModel
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var history: HistoryStore
+    @State private var visibleHistoryCount = 5
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1061,6 +1068,7 @@ struct SettingsPanel: View {
                     providerStatusGroup
                     providerModelGroup
                     historyGroup
+                    byokRoadmapGroup
                 }
                 .padding(.bottom, 2)
             }
@@ -1073,11 +1081,14 @@ struct SettingsPanel: View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
                 Picker("Provider", selection: $settings.provider) {
-                    ForEach(ProviderSelection.allCases) { provider in
+                    ForEach(providerPickerOptions) { provider in
                         Text(provider.title).tag(provider)
                     }
                 }
                 .pickerStyle(.segmented)
+                Text("Only ready CLI providers appear in the Provider picker.")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.56))
 
                 Picker("Assistant", selection: $settings.avatarStyle) {
                     ForEach(AvatarStyle.allCases) { style in
@@ -1159,6 +1170,12 @@ struct SettingsPanel: View {
                 Text("Claude uses \(settings.claudeModel.title) with \(settings.claudeEffort.title) effort.")
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.54))
+
+                Divider().overlay(.white.opacity(0.12))
+
+                Text("Cursor, OpenCode, and Antigravity use each CLI's configured default model.")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.60))
             }
         } label: {
             Text("Models")
@@ -1170,30 +1187,17 @@ struct SettingsPanel: View {
         GroupBox {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(viewModel.providerHealth) { health in
-                    HStack(spacing: 10) {
-                        Circle()
-                            .fill(health.authenticated ? Color.green : health.installed ? Color.yellow : Color.red)
-                            .frame(width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(health.provider.title)
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            Text(statusText(health))
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.54))
-                                .lineLimit(1)
-                        }
-                        Spacer()
-                        if health.installed {
-                            Button(health.authenticated ? "Re-login" : "Login") {
-                                viewModel.login(provider: health.provider)
-                            }
-                            .buttonStyle(GlassButtonStyle())
-                        }
-                    }
+                    cliProviderRow(health)
                 }
+
+                providerPlannedRow(
+                    title: "GitHub Copilot CLI",
+                    detail: "Planned - no reliable non-interactive gh copilot command is installed.",
+                    url: URL(string: "https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/overview")
+                )
             }
         } label: {
-            Text("Provider status")
+            Text("CLI providers")
         }
         .groupBoxStyle(GlassGroupBoxStyle())
     }
@@ -1203,15 +1207,16 @@ struct SettingsPanel: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Keep local history", isOn: $settings.historyEnabled)
                 HStack {
-                    Text("\(history.items.count) saved")
+                    Text("\(history.items.count) saved · \(formattedHistorySize)")
                     Spacer()
                     Button("Clear history") {
                         viewModel.clearHistory()
+                        visibleHistoryCount = 5
                     }
                     .buttonStyle(GlassButtonStyle())
                     .disabled(history.items.isEmpty)
                 }
-                ForEach(history.items.prefix(3)) { item in
+                ForEach(history.items.prefix(visibleHistoryCount)) { item in
                     VStack(alignment: .leading, spacing: 3) {
                         Text(item.prompt)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -1223,11 +1228,154 @@ struct SettingsPanel: View {
                     }
                     .padding(.vertical, 4)
                 }
+                if visibleHistoryCount < history.items.count {
+                    Button("Load more") {
+                        visibleHistoryCount = min(visibleHistoryCount + 10, history.items.count)
+                    }
+                    .buttonStyle(GlassButtonStyle())
+                }
             }
         } label: {
             Text("Local history")
         }
         .groupBoxStyle(GlassGroupBoxStyle())
+    }
+
+    private var byokRoadmapGroup: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("BYOK implementation next: Google Gemini, OpenAI, Anthropic, OpenRouter, and Groq.")
+                Text("API keys will be stored only in macOS Keychain after explicit confirmation.")
+            }
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .foregroundStyle(.white.opacity(0.68))
+        } label: {
+            Text("Advanced BYOK implementation")
+        }
+        .groupBoxStyle(GlassGroupBoxStyle())
+    }
+
+    private var providerPickerOptions: [ProviderSelection] {
+        var options: [ProviderSelection] = [.auto]
+        for provider in [AssistantProvider.codex, .claude, .cursor, .opencode, .antigravity] {
+            if isReady(provider), let selection = selection(for: provider) {
+                options.append(selection)
+            }
+        }
+        if !options.contains(settings.provider) {
+            DispatchQueue.main.async {
+                settings.provider = .auto
+            }
+        }
+        return options
+    }
+
+    private func isReady(_ provider: AssistantProvider) -> Bool {
+        guard let health = viewModel.providerHealth.first(where: { $0.provider == provider }) else {
+            return provider == .codex || provider == .claude
+        }
+        return health.installed && health.authenticated
+    }
+
+    private func selection(for provider: AssistantProvider) -> ProviderSelection? {
+        switch provider {
+        case .codex:
+            return .codex
+        case .claude:
+            return .claude
+        case .cursor:
+            return .cursor
+        case .opencode:
+            return .opencode
+        case .antigravity:
+            return .antigravity
+        }
+    }
+
+    private func cliProviderRow(_ health: ProviderHealth) -> some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(health.authenticated ? Color.green : health.installed ? Color.yellow : Color.red)
+                .frame(width: 8, height: 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(health.provider.title)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                Text(statusText(health))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.54))
+                    .lineLimit(2)
+            }
+            Spacer()
+            if let url = docsURL(for: health.provider), !health.authenticated {
+                MiniIconButton(systemName: "info.circle", label: "Provider info") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            if health.installed && supportsLogin(health.provider) {
+                Button(health.authenticated ? "Re-login" : "Login") {
+                    viewModel.login(provider: health.provider)
+                }
+                .buttonStyle(GlassButtonStyle())
+            }
+        }
+    }
+
+    private func providerPlannedRow(title: String, detail: String, url: URL?) -> some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(Color.gray.opacity(0.80))
+                .frame(width: 8, height: 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                Text(detail)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.58))
+                    .lineLimit(2)
+            }
+            Spacer()
+            if let url {
+                MiniIconButton(systemName: "info.circle", label: "Provider info") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
+    private func supportsLogin(_ provider: AssistantProvider) -> Bool {
+        switch provider {
+        case .codex, .claude, .cursor, .opencode:
+            return true
+        case .antigravity:
+            return false
+        }
+    }
+
+    private func docsURL(for provider: AssistantProvider) -> URL? {
+        switch provider {
+        case .codex:
+            return URL(string: "https://developers.openai.com/codex/")
+        case .claude:
+            return URL(string: "https://code.claude.com/docs/en/overview")
+        case .cursor:
+            return URL(string: "https://cursor.com/cli")
+        case .opencode:
+            return URL(string: "https://opencode.ai/docs/cli/")
+        case .antigravity:
+            return URL(string: "https://antigravity.google/docs/cli-using")
+        }
+    }
+
+    private var formattedHistorySize: String {
+        let bytes = Double(history.storageSizeBytes)
+        if bytes < 1024 {
+            return "\(Int(bytes)) B"
+        }
+        if bytes < 1024 * 1024 {
+            return "\(Int((bytes / 1024).rounded())) KB"
+        }
+        let megabytes = bytes / 1024 / 1024
+        return String(format: "%.1f MB", megabytes)
     }
 
     private func statusText(_ health: ProviderHealth) -> String {
@@ -2419,11 +2567,11 @@ struct PanelBackground: View {
         ZStack {
             PanelDragSurface()
             RoundedRectangle(cornerRadius: 34, style: .continuous)
-                .fill(.black.opacity(0.58))
+                .fill(.black.opacity(0.82))
             RoundedRectangle(cornerRadius: 34, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [.cyan.opacity(0.13), .indigo.opacity(0.11), .pink.opacity(0.12)],
+                        colors: [.cyan.opacity(0.10), .indigo.opacity(0.08), .pink.opacity(0.055)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -2456,7 +2604,7 @@ struct GlassGroupBoxStyle: GroupBoxStyle {
         }
         .padding(14)
         .foregroundStyle(.white.opacity(0.88))
-        .background(.white.opacity(0.11), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white.opacity(0.16), lineWidth: 1))
+        .background(.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white.opacity(0.20), lineWidth: 1))
     }
 }
