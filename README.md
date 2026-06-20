@@ -109,6 +109,10 @@ The status menu includes show/hide, settings, and quit controls.
 
 See [PRIVACY.md](PRIVACY.md) for details.
 
+## Third-Party Notices
+
+HoverAsk includes MIT-licensed Lockpaw visual assets for the Glass Dog and Glass Cat companions. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Release Status
 
 V1 is published as a GitHub release for evaluation while branding, assets, and distribution decisions remain under review. HoverAsk is proprietary software; see [LICENSE](LICENSE).
