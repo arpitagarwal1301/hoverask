@@ -21,7 +21,7 @@ flowchart TD
 
 - `NSPanel` uses a transparent borderless window.
 - The panel is set above normal app windows and joins all Spaces.
-- SwiftUI renders the glass avatar, transcript bubble, answer bubble, and settings panel.
+- SwiftUI renders the refractive glass avatar, visible orb rings, transcript bubble, answer bubble, and settings panel.
 - Dragging is handled through the floating panel and pauses companion motion briefly.
 
 ## Voice Pipeline
@@ -65,3 +65,4 @@ Provider selection supports:
 - No browser scraping.
 - No API keys.
 - No remote backend owned by HoverAsk.
+- The orb lens effect is drawn locally and does not sample or magnify real desktop pixels.

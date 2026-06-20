@@ -6,6 +6,7 @@
 - Renamed native bundle metadata, app output, menu labels, and app support paths.
 - Replaced third-party-named mascot resources with clean-room Glass Orb, Glass Dog, and Glass Cat assets.
 - Added transparent PNG animation frame sets for dog/cat states.
+- Finalized the dog-glass orb with privacy-safe refraction and prominent idle/listening rings.
 - Added GitHub-ready README, architecture, privacy, security, and release notes.
 - Added a proprietary all-rights-reserved license posture for the private V1 release.
 - Added a DMG packager for direct macOS installation.

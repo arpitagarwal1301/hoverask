@@ -1,6 +1,6 @@
 # GitHub Visual Setup
 
-Use [hoverask-preview.png](assets/hoverask-preview.png) anywhere GitHub needs a visual identity for the project.
+Use [hoverask-preview.png](assets/hoverask-preview.png) anywhere GitHub needs a visual identity for the project. The image reflects the V1 glass orb, companion avatars, and privacy-first voice positioning.
 
 ## README
 

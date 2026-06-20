@@ -1,7 +1,7 @@
 # HoverAsk
 
 <p align="center">
-  <img src="docs/assets/hoverask-preview.png" alt="HoverAsk preview showing a native macOS floating voice assistant with glass orb, companion avatars, and anchored answer bubble" width="100%">
+  <img src="docs/assets/hoverask-preview.png" alt="HoverAsk preview showing a native macOS floating voice assistant with a refractive glass orb, companion avatars, and anchored answer bubble" width="100%">
 </p>
 
 HoverAsk is a native macOS floating voice assistant that sits above other apps. Tap the glass orb or companion, speak in English or Hinglish, and HoverAsk sends the transcribed question to your logged-in Codex or Claude CLI account. The answer appears in a compact anchored bubble and can be spoken aloud.
@@ -27,6 +27,7 @@ Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The V1 app 
   - `codex exec`
   - `claude -p`
 - Minimal avatars: Glass Orb, Glass Dog, and Glass Cat.
+- Privacy-safe refractive glass orb with visible idle/listening rings.
 - Optional companion movement: stationary, roam, or chase cursor.
 - Local settings and optional local history.
 

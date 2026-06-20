@@ -817,13 +817,14 @@ struct OrbVisual: View {
         TimelineView(.animation) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             let breathe = reduceMotion ? 0 : sin(time * 1.08)
+            let drift = reduceMotion ? 0 : sin(time * 0.54)
             let pulse = reduceMotion ? 0.5 : (phase == .listening ? (sin(time * 4.0) + 1) / 2 : (sin(time * 1.35) + 1) / 2)
             let ivory = Color(red: 0.93, green: 0.99, blue: 0.95)
-            let mint = Color(red: 0.60, green: 0.96, blue: 0.90)
-            let cyan = Color(red: 0.07, green: 0.78, blue: 0.74)
-            let rimTeal = Color(red: 0.18, green: 0.58, blue: 0.56)
-            let deepTeal = Color(red: 0.025, green: 0.22, blue: 0.24)
-            let smokeTeal = Color(red: 0.012, green: 0.10, blue: 0.12)
+            let mint = Color(red: 0.66, green: 1.0, blue: 0.94)
+            let cyan = Color(red: 0.11, green: 0.86, blue: 0.80)
+            let rimTeal = Color(red: 0.22, green: 0.68, blue: 0.62)
+            let deepTeal = Color(red: 0.035, green: 0.30, blue: 0.31)
+            let smokeTeal = Color(red: 0.016, green: 0.13, blue: 0.15)
             let blackGlass = Color(red: 0.006, green: 0.010, blue: 0.014)
             let copper = Color(red: 0.86, green: 0.54, blue: 0.32)
 
@@ -868,6 +869,7 @@ struct OrbVisual: View {
                         strength: rippleStrength,
                         baseScale: rippleBaseScale,
                         step: rippleStep,
+                        isListening: phase == .listening,
                         isThinking: phase == .thinking,
                         reduceMotion: reduceMotion,
                         shadowColor: smokeTeal,
@@ -876,126 +878,21 @@ struct OrbVisual: View {
                     )
                 }
 
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                ivory.opacity(0.64),
-                                mint.opacity(0.36),
-                                cyan.opacity(0.40),
-                                deepTeal.opacity(0.96),
-                                blackGlass.opacity(1.0)
-                            ],
-                            center: UnitPoint(x: 0.31, y: 0.24),
-                            startRadius: 2,
-                            endRadius: size * 0.45
-                        )
-                    )
-                    .frame(width: size * 0.60, height: size * 0.60)
-                    .overlay(
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        .clear,
-                                        smokeTeal.opacity(0.24),
-                                        blackGlass.opacity(0.78)
-                                    ],
-                                    center: UnitPoint(x: 0.72, y: 0.68),
-                                    startRadius: size * 0.04,
-                                    endRadius: size * 0.33
-                                )
-                            )
-                    )
-                    .overlay(
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        cyan.opacity(0.26),
-                                        deepTeal.opacity(0.13),
-                                        .clear
-                                    ],
-                                    center: UnitPoint(x: 0.42, y: 0.43),
-                                    startRadius: 0,
-                                    endRadius: size * 0.22
-                                )
-                            )
-                            .blur(radius: 0.3)
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                AngularGradient(
-                                    colors: [
-                                        ivory.opacity(0.78),
-                                        mint.opacity(0.66),
-                                        cyan.opacity(0.70),
-                                        smokeTeal.opacity(0.52),
-                                        cyan.opacity(0.55),
-                                        ivory.opacity(0.64)
-                                    ],
-                                    center: .center
-                                ),
-                                lineWidth: 1.35
-                            )
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(smokeTeal.opacity(0.42), lineWidth: 0.8)
-                            .padding(size * 0.018)
-                    )
-                    .overlay(
-                        Ellipse()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        ivory.opacity(0.76),
-                                        ivory.opacity(0.30),
-                                        .clear
-                                    ],
-                                    center: .center,
-                                    startRadius: 0,
-                                    endRadius: size * 0.12
-                                )
-                            )
-                            .frame(width: size * 0.23, height: size * 0.16)
-                            .rotationEffect(.degrees(-24))
-                            .offset(x: -size * 0.115, y: -size * 0.135)
-                    )
-                    .overlay(
-                        Ellipse()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        .clear,
-                                        copper.opacity(0.16),
-                                        ivory.opacity(0.08),
-                                        .clear
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: size * 0.21, height: size * 0.050)
-                            .rotationEffect(.degrees(-36))
-                            .offset(x: size * 0.142, y: size * 0.190)
-                            .blur(radius: 0.45)
-                            .blendMode(.screen)
-                    )
-                    .overlay(
-                        OrbGlassGrain(size: size)
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(cyan.opacity(0.20), lineWidth: size * 0.012)
-                            .blur(radius: 0.45)
-                            .padding(size * 0.034)
-                    )
-                    .shadow(color: cyan.opacity(phase == .listening ? 0.20 : 0.10), radius: phase == .listening ? 8 : 5, x: -1, y: 3)
-                    .shadow(color: smokeTeal.opacity(0.26), radius: 6, x: 4, y: 6)
-                    .shadow(color: .black.opacity(0.18), radius: 5, y: 6)
-                    .scaleEffect(1 + CGFloat(breathe) * 0.010)
+                OrbCoreGlass(
+                    size: size,
+                    phase: phase,
+                    time: time,
+                    breathe: CGFloat(breathe),
+                    drift: CGFloat(drift),
+                    reduceMotion: reduceMotion,
+                    ivory: ivory,
+                    mint: mint,
+                    cyan: cyan,
+                    deepTeal: deepTeal,
+                    smokeTeal: smokeTeal,
+                    blackGlass: blackGlass,
+                    copper: copper
+                )
             }
             .frame(width: size, height: size)
             .scaleEffect(phase == .listening ? 1.030 : 1)
@@ -1005,9 +902,9 @@ struct OrbVisual: View {
     private var rippleCount: Int {
         switch phase {
         case .idle, .settings:
-            return 2
+            return 3
         case .listening:
-            return 4
+            return 5
         case .thinking:
             return 3
         case .answer:
@@ -1020,54 +917,434 @@ struct OrbVisual: View {
     private var rippleStrength: Double {
         switch phase {
         case .idle, .settings:
-            return 0.38
+            return 0.82
         case .listening:
-            return 0.92
+            return 1.24
         case .thinking:
-            return 0.58
+            return 0.92
         case .answer:
-            return 0.76
+            return 1.04
         case .error:
-            return 0.34
+            return 0.66
         }
     }
 
     private var rippleBaseScale: CGFloat {
         switch phase {
         case .idle, .settings, .error:
-            return 0.66
+            return 0.64
         case .thinking:
-            return 0.70
+            return 0.67
         case .listening, .answer:
-            return 0.73
+            return 0.72
         }
     }
 
     private var rippleStep: CGFloat {
         switch phase {
         case .idle, .settings, .error:
-            return 0.045
+            return 0.052
         case .thinking:
-            return 0.082
+            return 0.070
         case .listening:
-            return 0.095
+            return 0.088
         case .answer:
-            return 0.105
+            return 0.090
         }
     }
 
     private var rimGlowOpacity: Double {
         switch phase {
         case .listening:
-            return 0.072
+            return 0.090
         case .answer:
-            return 0.060
+            return 0.072
         case .thinking:
-            return 0.050
+            return 0.062
         case .error:
-            return 0.030
+            return 0.042
         case .idle, .settings:
-            return 0.040
+            return 0.055
+        }
+    }
+}
+
+private struct OrbCoreGlass: View {
+    let size: CGFloat
+    let phase: OrbPhase
+    let time: TimeInterval
+    let breathe: CGFloat
+    let drift: CGFloat
+    let reduceMotion: Bool
+    let ivory: Color
+    let mint: Color
+    let cyan: Color
+    let deepTeal: Color
+    let smokeTeal: Color
+    let blackGlass: Color
+    let copper: Color
+
+    var body: some View {
+        Circle()
+            .fill(coreFill)
+            .frame(width: size * 0.60, height: size * 0.60)
+            .overlay(lowerShade)
+            .overlay(tealBodyReflection)
+            .overlay(lensRefraction)
+            .overlay(rimStroke)
+            .overlay(innerDarkRim)
+            .overlay(dogGlassReflections)
+            .overlay(mainHighlight)
+            .overlay(movingRimGlint)
+            .overlay(copperCrescent)
+            .overlay(OrbGlassGrain(size: size))
+            .overlay(innerCyanEdge)
+            .shadow(color: cyan.opacity(phase == .listening ? 0.20 : 0.10), radius: phase == .listening ? 8 : 5, x: -1, y: 3)
+            .shadow(color: smokeTeal.opacity(0.26), radius: 6, x: 4, y: 6)
+            .shadow(color: .black.opacity(0.18), radius: 5, y: 6)
+            .scaleEffect(1 + breathe * 0.010)
+            .rotationEffect(.degrees(reduceMotion ? 0 : Double(drift) * 0.55))
+    }
+
+    private var coreFill: RadialGradient {
+        RadialGradient(
+            colors: [
+                ivory.opacity(0.68),
+                mint.opacity(0.44),
+                cyan.opacity(0.50),
+                deepTeal.opacity(0.92),
+                blackGlass.opacity(0.94)
+            ],
+            center: UnitPoint(x: 0.31, y: 0.24),
+            startRadius: 2,
+            endRadius: size * 0.45
+        )
+    }
+
+    private var lowerShade: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        .clear,
+                        smokeTeal.opacity(0.18),
+                        blackGlass.opacity(0.58)
+                    ],
+                    center: UnitPoint(x: 0.72, y: 0.68),
+                    startRadius: size * 0.04,
+                    endRadius: size * 0.33
+                )
+            )
+    }
+
+    private var tealBodyReflection: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        cyan.opacity(0.34),
+                        deepTeal.opacity(0.15),
+                        .clear
+                    ],
+                    center: UnitPoint(x: 0.40 + drift * 0.025, y: 0.42),
+                    startRadius: 0,
+                    endRadius: size * 0.22
+                )
+            )
+            .blur(radius: 0.3)
+    }
+
+    private var lensRefraction: some View {
+        OrbLensRefraction(
+            size: size,
+            phase: phase,
+            time: time,
+            reduceMotion: reduceMotion,
+            ivory: ivory,
+            mint: mint,
+            cyan: cyan,
+            deepTeal: deepTeal,
+            smokeTeal: smokeTeal
+        )
+    }
+
+    private var rimStroke: some View {
+        Circle()
+            .stroke(
+                AngularGradient(
+                    colors: [
+                        ivory.opacity(0.78),
+                        mint.opacity(0.66),
+                        cyan.opacity(0.70),
+                        smokeTeal.opacity(0.52),
+                        cyan.opacity(0.55),
+                        ivory.opacity(0.64)
+                    ],
+                    center: .center
+                ),
+                lineWidth: 1.35
+            )
+    }
+
+    private var innerDarkRim: some View {
+        Circle()
+            .stroke(smokeTeal.opacity(0.42), lineWidth: 0.8)
+            .padding(size * 0.018)
+    }
+
+    private var dogGlassReflections: some View {
+        OrbDogGlassReflections(
+            size: size,
+            time: time,
+            reduceMotion: reduceMotion,
+            ivory: ivory,
+            mint: mint,
+            cyan: cyan,
+            deepTeal: deepTeal,
+            smokeTeal: smokeTeal
+        )
+    }
+
+    private var mainHighlight: some View {
+        Ellipse()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        ivory.opacity(0.76),
+                        ivory.opacity(0.30),
+                        .clear
+                    ],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: size * 0.12
+                )
+            )
+            .frame(width: size * 0.23, height: size * 0.16)
+            .rotationEffect(.degrees(-24))
+            .offset(x: -size * 0.115, y: -size * 0.135)
+    }
+
+    private var movingRimGlint: some View {
+        Circle()
+            .trim(from: 0.025, to: 0.145)
+            .stroke(
+                LinearGradient(
+                    colors: [
+                        ivory.opacity(0.68),
+                        mint.opacity(0.54),
+                        .clear
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
+                style: StrokeStyle(lineWidth: 1.55, lineCap: .round)
+            )
+            .rotationEffect(.degrees(reduceMotion ? -42 : time * 10 - 42))
+            .padding(size * 0.018)
+    }
+
+    private var copperCrescent: some View {
+        Ellipse()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        .clear,
+                        copper.opacity(0.16),
+                        ivory.opacity(0.08),
+                        .clear
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: size * 0.21, height: size * 0.050)
+            .rotationEffect(.degrees(-36))
+            .offset(x: size * 0.142, y: size * 0.190)
+            .blur(radius: 0.45)
+            .blendMode(.screen)
+    }
+
+    private var innerCyanEdge: some View {
+        Circle()
+            .stroke(cyan.opacity(0.24), lineWidth: size * 0.012)
+            .blur(radius: 0.45)
+            .padding(size * 0.034)
+    }
+}
+
+private struct OrbLensRefraction: View {
+    let size: CGFloat
+    let phase: OrbPhase
+    let time: TimeInterval
+    let reduceMotion: Bool
+    let ivory: Color
+    let mint: Color
+    let cyan: Color
+    let deepTeal: Color
+    let smokeTeal: Color
+
+    var body: some View {
+        let motion = reduceMotion ? 0 : time * motionSpeed
+        let drift = CGFloat(sin(motion))
+        let counterDrift = CGFloat(cos(motion * 0.74))
+
+        ZStack {
+            magnifiedLightPatch(drift: drift)
+            warpedTealBand(drift: drift, counterDrift: counterDrift)
+            invertedReflectionPatch(counterDrift: counterDrift)
+            innerCausticBands(drift: drift)
+            lensEdgeThickness(drift: drift)
+        }
+        .frame(width: size * 0.60, height: size * 0.60)
+        .clipShape(Circle())
+    }
+
+    private var motionSpeed: Double {
+        switch phase {
+        case .listening:
+            return 1.05
+        case .thinking, .answer:
+            return 0.70
+        case .idle, .settings, .error:
+            return 0.34
+        }
+    }
+
+    private var phaseBoost: Double {
+        switch phase {
+        case .listening:
+            return 1.18
+        case .thinking, .answer:
+            return 1.06
+        case .idle, .settings:
+            return 0.94
+        case .error:
+            return 0.80
+        }
+    }
+
+    private func magnifiedLightPatch(drift: CGFloat) -> some View {
+        Ellipse()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        ivory.opacity(0.20 * phaseBoost),
+                        mint.opacity(0.080 * phaseBoost),
+                        cyan.opacity(0.035 * phaseBoost),
+                        .clear
+                    ],
+                    center: UnitPoint(x: 0.36 + drift * 0.08, y: 0.36),
+                    startRadius: 0,
+                    endRadius: size * 0.18
+                )
+            )
+            .frame(width: size * 0.34, height: size * 0.20)
+            .rotationEffect(.degrees(-18 + Double(drift) * 2.4))
+            .offset(x: -size * 0.030 + drift * size * 0.018, y: -size * 0.030)
+            .blendMode(.screen)
+    }
+
+    private func warpedTealBand(drift: CGFloat, counterDrift: CGFloat) -> some View {
+        Capsule()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        .clear,
+                        cyan.opacity(0.13 * phaseBoost),
+                        mint.opacity(0.075 * phaseBoost),
+                        .clear
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .frame(width: size * 0.042, height: size * 0.42)
+            .rotationEffect(.degrees(53 + Double(drift) * 3.4))
+            .offset(x: counterDrift * size * 0.018, y: drift * size * 0.010)
+            .blur(radius: 0.35)
+            .blendMode(.screen)
+    }
+
+    private func invertedReflectionPatch(counterDrift: CGFloat) -> some View {
+        Ellipse()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        smokeTeal.opacity(0.22),
+                        deepTeal.opacity(0.10),
+                        .clear
+                    ],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: size * 0.14
+                )
+            )
+            .frame(width: size * 0.30, height: size * 0.13)
+            .rotationEffect(.degrees(15 - Double(counterDrift) * 2))
+            .offset(x: size * 0.070, y: size * 0.105 + counterDrift * size * 0.006)
+            .blendMode(.multiply)
+    }
+
+    private func innerCausticBands(drift: CGFloat) -> some View {
+        ZStack {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .trim(from: causticStart(index), to: causticStart(index) + causticLength(index))
+                    .stroke(
+                        index == 1 ? mint.opacity(0.14 * phaseBoost) : ivory.opacity(0.12 * phaseBoost),
+                        style: StrokeStyle(lineWidth: index == 1 ? 0.70 : 0.55, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(Double(index) * 44 + Double(drift) * 5))
+                    .padding(size * (0.12 + CGFloat(index) * 0.030))
+                    .blendMode(.screen)
+            }
+        }
+    }
+
+    private func lensEdgeThickness(drift: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .trim(from: 0.58, to: 0.86)
+                .stroke(
+                    smokeTeal.opacity(0.32),
+                    style: StrokeStyle(lineWidth: 2.0, lineCap: .round)
+                )
+                .rotationEffect(.degrees(8 + Double(drift) * 1.4))
+                .padding(size * 0.020)
+
+            Circle()
+                .trim(from: 0.09, to: 0.31)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            ivory.opacity(0.28),
+                            mint.opacity(0.18),
+                            .clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: 1.35, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-24 - Double(drift) * 1.6))
+                .padding(size * 0.022)
+                .blendMode(.screen)
+        }
+    }
+
+    private func causticStart(_ index: Int) -> CGFloat {
+        switch index {
+        case 0: return 0.085
+        case 1: return 0.345
+        default: return 0.735
+        }
+    }
+
+    private func causticLength(_ index: Int) -> CGFloat {
+        switch index {
+        case 0: return 0.095
+        case 1: return 0.070
+        default: return 0.060
         }
     }
 }
@@ -1080,6 +1357,7 @@ private struct OrbRippleRing: View {
     let strength: Double
     let baseScale: CGFloat
     let step: CGFloat
+    let isListening: Bool
     let isThinking: Bool
     let reduceMotion: Bool
     let shadowColor: Color
@@ -1088,17 +1366,28 @@ private struct OrbRippleRing: View {
 
     var body: some View {
         let ringSize = size * (baseScale + CGFloat(index) * step + pulse * liveScale)
-        let rotation = reduceMotion ? 0 : time * (isThinking ? 14 : 5.5) + Double(index) * 31
-        let baseOpacity = max(0.0, 0.25 * strength - Double(index) * 0.030)
-        let accentOpacity = max(0.0, 0.34 * strength - Double(index) * 0.044)
+        let rotation = reduceMotion ? 0 : time * rotationSpeed + Double(index) * 31
+        let baseOpacity = min(0.72, max(0.0, 0.40 * strength - Double(index) * 0.044))
+        let accentOpacity = min(0.86, max(0.0, 0.56 * strength - Double(index) * 0.060))
+        let whisperOpacity = min(0.24, max(0.0, 0.13 * strength - Double(index) * 0.018))
+        let baseLineWidth = isListening ? 2.35 : 1.90
+        let accentLineWidth = isListening ? 1.32 : 1.08
 
         ZStack {
-            ForEach(0..<3, id: \.self) { segment in
+            Circle()
+                .stroke(
+                    highlightColor.opacity(whisperOpacity),
+                    style: StrokeStyle(lineWidth: 0.72, lineCap: .round)
+                )
+                .frame(width: ringSize, height: ringSize)
+                .rotationEffect(.degrees(rotation))
+
+            ForEach(0..<4, id: \.self) { segment in
                 Circle()
                     .trim(from: segmentStart(segment), to: segmentStart(segment) + segmentLength(segment))
                     .stroke(
                         shadowColor.opacity(baseOpacity),
-                        style: StrokeStyle(lineWidth: 1.45, lineCap: .round)
+                        style: StrokeStyle(lineWidth: baseLineWidth, lineCap: .round)
                     )
                     .frame(width: ringSize, height: ringSize)
                     .rotationEffect(.degrees(rotation))
@@ -1107,7 +1396,7 @@ private struct OrbRippleRing: View {
                     .trim(from: segmentStart(segment) + 0.010, to: segmentStart(segment) + segmentLength(segment) - 0.016)
                     .stroke(
                         segment == 1 ? highlightColor.opacity(accentOpacity * 0.72) : accentColor.opacity(accentOpacity),
-                        style: StrokeStyle(lineWidth: 0.80, lineCap: .round)
+                        style: StrokeStyle(lineWidth: accentLineWidth, lineCap: .round)
                     )
                     .frame(width: ringSize, height: ringSize)
                     .rotationEffect(.degrees(rotation + 1.5))
@@ -1115,24 +1404,124 @@ private struct OrbRippleRing: View {
         }
     }
 
+    private var rotationSpeed: Double {
+        if isListening {
+            return 11.5 + Double(index) * 1.4
+        }
+        return (isThinking ? 8.5 : 4.8) + Double(index) * 0.55
+    }
+
     private var liveScale: CGFloat {
-        index == 0 ? 0.012 : 0.020
+        if reduceMotion {
+            return 0
+        }
+        if isListening {
+            return index == 0 ? 0.026 : 0.035
+        }
+        return index == 0 ? 0.010 : 0.015
     }
 
     private func segmentStart(_ segment: Int) -> CGFloat {
         switch segment {
         case 0: return 0.055
-        case 1: return 0.385
-        default: return 0.705
+        case 1: return 0.315
+        case 2: return 0.575
+        default: return 0.805
         }
     }
 
     private func segmentLength(_ segment: Int) -> CGFloat {
         switch segment {
-        case 0: return 0.180
-        case 1: return 0.155
-        default: return 0.130
+        case 0: return 0.205
+        case 1: return 0.165
+        case 2: return 0.145
+        default: return 0.105
         }
+    }
+}
+
+private struct OrbDogGlassReflections: View {
+    let size: CGFloat
+    let time: TimeInterval
+    let reduceMotion: Bool
+    let ivory: Color
+    let mint: Color
+    let cyan: Color
+    let deepTeal: Color
+    let smokeTeal: Color
+
+    var body: some View {
+        let drift = reduceMotion ? CGFloat.zero : CGFloat(sin(time * 0.52))
+        let counterDrift = reduceMotion ? CGFloat.zero : CGFloat(cos(time * 0.38))
+
+        ZStack {
+            Ellipse()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            mint.opacity(0.00),
+                            mint.opacity(0.13),
+                            cyan.opacity(0.10),
+                            .clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size * 0.38, height: size * 0.16)
+                .rotationEffect(.degrees(-21 + drift * 2.0))
+                .offset(x: -size * 0.01 + drift * size * 0.012, y: size * 0.005)
+                .blendMode(.screen)
+
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            ivory.opacity(0.00),
+                            mint.opacity(0.20),
+                            cyan.opacity(0.13),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: size * 0.026, height: size * 0.35)
+                .rotationEffect(.degrees(9 + counterDrift * 1.2))
+                .offset(x: -size * 0.105, y: size * 0.035 + counterDrift * size * 0.006)
+                .blur(radius: 0.25)
+                .blendMode(.screen)
+
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            deepTeal.opacity(0.18),
+                            smokeTeal.opacity(0.10),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: size * 0.18
+                    )
+                )
+                .frame(width: size * 0.34, height: size * 0.18)
+                .rotationEffect(.degrees(18))
+                .offset(x: size * 0.065, y: size * 0.105)
+                .blendMode(.multiply)
+
+            Circle()
+                .trim(from: 0.58, to: 0.74)
+                .stroke(
+                    cyan.opacity(0.20),
+                    style: StrokeStyle(lineWidth: 1.1, lineCap: .round)
+                )
+                .rotationEffect(.degrees(6 + drift * 4))
+                .padding(size * 0.075)
+                .blendMode(.screen)
+        }
+        .frame(width: size * 0.60, height: size * 0.60)
+        .clipShape(Circle())
     }
 }
 

@@ -4,6 +4,8 @@
 
 HoverAsk V1 is a native macOS floating voice assistant prototype. It gives you a small glass companion above your desktop, listens to English/Hinglish questions, routes them through logged-in Codex or Claude CLI accounts, and returns a compact text + spoken answer.
 
+This final V1 build includes the polished dog-glass visual system: a privacy-safe refractive orb, prominent idle/listening rings, and glass dog/cat companions with anchored chat bubbles.
+
 ## Download
 
 - [Download the macOS DMG](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.0.0/HoverAsk-v1.0.0-macos.dmg)
@@ -18,6 +20,7 @@ HoverAsk V1 is a native macOS floating voice assistant prototype. It gives you a
 - Built-in spoken replies.
 - Provider selection: Auto, Codex, Claude.
 - Glass Orb, Glass Dog, and Glass Cat avatar styles.
+- Privacy-safe refractive orb effect with prominent ring states.
 - Optional stationary, roam, or chase-cursor movement.
 - No API keys, no screenshots, no browser scraping.
 
