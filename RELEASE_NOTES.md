@@ -2,6 +2,11 @@
 
 HoverAsk V1 is a native macOS floating voice assistant prototype. It gives you a small glass companion above your desktop, listens to English/Hinglish questions, routes them through logged-in Codex or Claude CLI accounts, and returns a compact text + spoken answer.
 
+## Download
+
+- [Download the macOS DMG](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.0.0/HoverAsk-v1.0.0-macos.dmg)
+- [Download the ZIP fallback](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.0.0/HoverAsk-v1.0.0-macos.zip)
+
 ## Highlights
 
 - Native SwiftUI/AppKit floating panel.
@@ -28,6 +33,6 @@ HoverAsk V1 is a native macOS floating voice assistant prototype. It gives you a
 
 ## Notes
 
-This release is a private V1 prototype. HoverAsk is proprietary software and no open-source license is granted.
+This release is a V1 prototype. HoverAsk is proprietary software and no open-source license is granted.
 
 The app is ad-hoc signed for local testing, not Developer ID notarized yet. macOS may require right-clicking the app and choosing Open on first launch.

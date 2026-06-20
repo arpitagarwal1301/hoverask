@@ -4,6 +4,15 @@ HoverAsk is a native macOS floating voice assistant that sits above other apps. 
 
 This is a personal/local V1 prototype. It does not use API keys, does not capture screenshots, and does not scrape browser content.
 
+## Download
+
+Download the latest macOS build from the GitHub release:
+
+- [HoverAsk-v1.0.0-macos.dmg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.0.0/HoverAsk-v1.0.0-macos.dmg)
+- [HoverAsk v1.0.0 release page](https://github.com/arpitagarwal1301/hoverask/releases/tag/v1.0.0)
+
+Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The V1 app is ad-hoc signed for local testing, not Developer ID notarized yet, so macOS may require right-clicking the app and choosing Open on first launch.
+
 ## Features
 
 - Native SwiftUI/AppKit macOS app with a floating always-on-top panel.
@@ -98,4 +107,4 @@ See [PRIVACY.md](PRIVACY.md) for details.
 
 ## Release Status
 
-V1 is prepared as a private GitHub release while branding, assets, and distribution decisions remain under review. HoverAsk is proprietary software; see [LICENSE](LICENSE).
+V1 is published as a GitHub release for evaluation while branding, assets, and distribution decisions remain under review. HoverAsk is proprietary software; see [LICENSE](LICENSE).
