@@ -161,6 +161,7 @@ struct MinimalChatChipView: View {
     @EnvironmentObject private var settings: SettingsStore
     let mode: CompanionBubbleMode
     let errorMessage: String?
+    @State private var copiedToken: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: isExpanded ? 8 : 6) {
@@ -280,7 +281,10 @@ struct MinimalChatChipView: View {
             }
 
             MiniIconButton(systemName: "doc.on.doc", label: "Copy input", isDisabled: inputTextIsEmpty) {
-                copyToPasteboard(inputCopyText)
+                copyToPasteboard(inputCopyText, token: "compact-input")
+            }
+            .overlay(alignment: .topTrailing) {
+                copyFeedbackToast(for: "compact-input", xOffset: 8)
             }
             MiniIconButton(systemName: "paperplane.fill", label: "Send input", isDisabled: sendTextIsEmpty) {
                 viewModel.submitTypedPrompt()
@@ -300,7 +304,10 @@ struct MinimalChatChipView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             MiniIconButton(systemName: "doc.on.doc", label: "Copy answer", isDisabled: answerCopyText.isEmpty) {
-                copyToPasteboard(answerCopyText)
+                copyToPasteboard(answerCopyText, token: "compact-answer")
+            }
+            .overlay(alignment: .topTrailing) {
+                copyFeedbackToast(for: "compact-answer", xOffset: 8)
             }
         }
         .frame(minHeight: 24, alignment: .top)
@@ -414,7 +421,8 @@ struct MinimalChatChipView: View {
                 side: .user,
                 iconName: "waveform",
                 isError: false,
-                copyAction: { copyToPasteboard(exchange.question) }
+                isCopied: copiedToken == "question-\(exchange.id.uuidString)",
+                copyAction: { copyToPasteboard(exchange.question, token: "question-\(exchange.id.uuidString)") }
             )
 
             ChatMessageBubble(
@@ -424,7 +432,8 @@ struct MinimalChatChipView: View {
                 iconName: exchangeIcon(for: exchange),
                 isError: isFailed(exchange),
                 isThinking: isPending(exchange),
-                copyAction: { copyToPasteboard(exchange.answer) },
+                isCopied: copiedToken == "answer-\(exchange.id.uuidString)",
+                copyAction: { copyToPasteboard(exchange.answer, token: "answer-\(exchange.id.uuidString)") },
                 isCopyDisabled: exchange.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
         }
@@ -438,7 +447,8 @@ struct MinimalChatChipView: View {
             side: .user,
             iconName: mode == .listening ? "mic.fill" : "keyboard",
             isError: false,
-            copyAction: { copyToPasteboard(viewModel.typedPrompt) }
+            isCopied: copiedToken == "draft",
+            copyAction: { copyToPasteboard(viewModel.typedPrompt, token: "draft") }
         )
         .padding(.vertical, 2)
     }
@@ -721,13 +731,32 @@ struct MinimalChatChipView: View {
         mode == .error ? .pink.opacity(0.12) : .cyan.opacity(0.12)
     }
 
-    private func copyToPasteboard(_ text: String) {
+    @ViewBuilder
+    private func copyFeedbackToast(for token: String, xOffset: CGFloat = 0) -> some View {
+        if copiedToken == token {
+            CopyFeedbackPill()
+                .offset(x: xOffset, y: -26)
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+        }
+    }
+
+    private func copyToPasteboard(_ text: String, token: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return
         }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(trimmed, forType: .string)
+        withAnimation(.easeOut(duration: 0.12)) {
+            copiedToken = token
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            if copiedToken == token {
+                withAnimation(.easeIn(duration: 0.14)) {
+                    copiedToken = nil
+                }
+            }
+        }
     }
 }
 
@@ -743,6 +772,7 @@ struct ChatMessageBubble: View {
     let iconName: String
     var isError = false
     var isThinking = false
+    var isCopied = false
     let copyAction: () -> Void
     var isCopyDisabled = false
 
@@ -791,6 +821,9 @@ struct ChatMessageBubble: View {
                     ) {
                         copyAction()
                     }
+                    .overlay(alignment: .topLeading) {
+                        copyFeedbackToast(xOffset: -2)
+                    }
                 }
 
                 if isThinking {
@@ -814,6 +847,9 @@ struct ChatMessageBubble: View {
                         isDisabled: isCopyDisabled
                     ) {
                         copyAction()
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        copyFeedbackToast(xOffset: 2)
                     }
                 }
             }
@@ -888,6 +924,32 @@ struct ChatMessageBubble: View {
 
     private var textColor: Color {
         isError ? Color(red: 1, green: 0.82, blue: 0.82) : .white.opacity(side == .user ? 0.90 : 0.78)
+    }
+
+    @ViewBuilder
+    private func copyFeedbackToast(xOffset: CGFloat) -> some View {
+        if isCopied {
+            CopyFeedbackPill()
+                .offset(x: xOffset, y: -26)
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+        }
+    }
+}
+
+struct CopyFeedbackPill: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 8, weight: .bold))
+            Text("Copied")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+        }
+        .foregroundStyle(Color(red: 1.0, green: 0.68, blue: 0.38).opacity(0.96))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(Color.orange.opacity(0.12), in: Capsule())
+        .overlay(Capsule().stroke(Color.orange.opacity(0.28), lineWidth: 1))
+        .shadow(color: Color.orange.opacity(0.16), radius: 8, x: 0, y: 3)
     }
 }
 

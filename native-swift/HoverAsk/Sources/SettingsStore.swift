@@ -91,6 +91,18 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(lmStudioModel, forKey: Keys.lmStudioModel) }
     }
 
+    @Published var disabledProviders: Set<AssistantProvider> {
+        didSet { saveDisabledProviders() }
+    }
+
+    @Published var providerRouteOrder: [AssistantProvider] {
+        didSet { saveProviderRouteOrder() }
+    }
+
+    @Published var providerModelChoices: [AssistantProvider: ProviderModelChoice] {
+        didSet { saveProviderModelChoices() }
+    }
+
     @Published var hotKeyShortcut: HotKeyShortcut {
         didSet {
             defaults.set(Int(hotKeyShortcut.keyCode), forKey: Keys.hotKeyKeyCode)
@@ -121,6 +133,9 @@ final class SettingsStore: ObservableObject {
         groqModel = defaults.string(forKey: Keys.groqModel) ?? AssistantProvider.groq.defaultModel
         ollamaModel = defaults.string(forKey: Keys.ollamaModel) ?? AssistantProvider.ollama.defaultModel
         lmStudioModel = defaults.string(forKey: Keys.lmStudioModel) ?? AssistantProvider.lmStudio.defaultModel
+        disabledProviders = Self.loadProviderSet(defaults: defaults, key: Keys.disabledProviders)
+        providerRouteOrder = Self.loadProviderArray(defaults: defaults, key: Keys.providerRouteOrder)
+        providerModelChoices = Self.loadModelChoices(defaults: defaults, key: Keys.providerModelChoices)
 
         let storedKeyCode = defaults.object(forKey: Keys.hotKeyKeyCode) as? Int
         let storedModifiers = defaults.object(forKey: Keys.hotKeyModifiers) as? Int
@@ -147,6 +162,8 @@ final class SettingsStore: ObservableObject {
         } else {
             historyEnabled = defaults.bool(forKey: Keys.historyEnabled)
         }
+
+        seedMissingModelChoices()
     }
 
     var providerRuntimeOptions: ProviderRuntimeOptions {
@@ -169,8 +186,44 @@ final class SettingsStore: ObservableObject {
                 .gemini: geminiModel,
                 .openRouter: openRouterModel,
                 .groq: groqModel
-            ]
+            ],
+            disabledProviders: disabledProviders,
+            providerRouteOrder: normalizedRouteOrder,
+            providerModelChoices: providerModelChoices
         )
+    }
+
+    var normalizedRouteOrder: [AssistantProvider] {
+        let unique = providerRouteOrder.reduce(into: [AssistantProvider]()) { result, provider in
+            if !result.contains(provider) {
+                result.append(provider)
+            }
+        }
+        return unique.isEmpty ? AssistantProvider.defaultRouteOrder : unique
+    }
+
+    func providerModelChoice(for provider: AssistantProvider) -> ProviderModelChoice {
+        providerModelChoices[provider] ?? legacyModelChoice(for: provider)
+    }
+
+    func setProviderModelChoice(_ choice: ProviderModelChoice, for provider: AssistantProvider) {
+        providerModelChoices[provider] = choice
+        applyChoiceToLegacyFields(choice)
+    }
+
+    func setProviderModelID(_ modelID: String, for provider: AssistantProvider) {
+        var choice = providerModelChoice(for: provider)
+        choice.modelID = modelID
+        choice.displayTitle = modelID
+        setProviderModelChoice(choice, for: provider)
+    }
+
+    func setProviderDisabled(_ disabled: Bool, provider: AssistantProvider) {
+        if disabled {
+            disabledProviders.insert(provider)
+        } else {
+            disabledProviders.remove(provider)
+        }
     }
 
     func resetToDefaults() {
@@ -196,7 +249,140 @@ final class SettingsStore: ObservableObject {
         groqModel = AssistantProvider.groq.defaultModel
         ollamaModel = AssistantProvider.ollama.defaultModel
         lmStudioModel = AssistantProvider.lmStudio.defaultModel
+        disabledProviders = []
+        providerRouteOrder = AssistantProvider.defaultRouteOrder
+        providerModelChoices = [:]
+        seedMissingModelChoices()
         hotKeyShortcut = .default
+    }
+
+    private func seedMissingModelChoices() {
+        var choices = providerModelChoices
+        for provider in AssistantProvider.allCases where choices[provider] == nil {
+            choices[provider] = legacyModelChoice(for: provider)
+        }
+        providerModelChoices = choices
+    }
+
+    private func legacyModelChoice(for provider: AssistantProvider) -> ProviderModelChoice {
+        let model: String
+        let effort: ProviderEffort
+        switch provider {
+        case .codex:
+            model = codexModel.title
+            effort = ProviderEffort(codex: codexEffort)
+        case .claude:
+            model = claudeModel.title
+            effort = ProviderEffort(claude: claudeEffort)
+        case .ollama:
+            model = ollamaModel
+            effort = .default
+        case .lmStudio:
+            model = lmStudioModel
+            effort = .default
+        case .openAI:
+            model = openAIModel
+            effort = .medium
+        case .anthropic:
+            model = anthropicModel
+            effort = .default
+        case .gemini:
+            model = geminiModel
+            effort = .default
+        case .openRouter:
+            model = openRouterModel
+            effort = .default
+        case .groq:
+            model = groqModel
+            effort = .default
+        case .cursor, .opencode, .antigravity, .appleIntelligence:
+            model = provider.defaultModel
+            effort = .default
+        }
+        return ProviderModelChoice(provider: provider, modelID: model, effort: effort, displayTitle: model)
+    }
+
+    private func applyChoiceToLegacyFields(_ choice: ProviderModelChoice) {
+        switch choice.provider {
+        case .codex:
+            if let model = CodexModel.allCases.first(where: { $0.title == choice.modelID || $0.rawValue == choice.modelID }) {
+                codexModel = model
+            }
+            switch choice.effort {
+            case .low: codexEffort = .low
+            case .medium, .default: codexEffort = .medium
+            case .high: codexEffort = .high
+            case .xhigh, .max: codexEffort = .xhigh
+            }
+        case .claude:
+            if let model = ClaudeModel.allCases.first(where: { $0.title == choice.modelID || $0.rawValue == choice.modelID }) {
+                claudeModel = model
+            }
+            switch choice.effort {
+            case .low: claudeEffort = .low
+            case .medium, .default: claudeEffort = .medium
+            case .high: claudeEffort = .high
+            case .xhigh: claudeEffort = .xhigh
+            case .max: claudeEffort = .max
+            }
+        case .ollama:
+            ollamaModel = choice.modelID
+        case .lmStudio:
+            lmStudioModel = choice.modelID
+        case .openAI:
+            openAIModel = choice.modelID
+        case .anthropic:
+            anthropicModel = choice.modelID
+        case .gemini:
+            geminiModel = choice.modelID
+        case .openRouter:
+            openRouterModel = choice.modelID
+        case .groq:
+            groqModel = choice.modelID
+        case .cursor, .opencode, .antigravity, .appleIntelligence:
+            break
+        }
+    }
+
+    private func saveDisabledProviders() {
+        defaults.set(disabledProviders.map(\.rawValue), forKey: Keys.disabledProviders)
+    }
+
+    private func saveProviderRouteOrder() {
+        defaults.set(providerRouteOrder.map(\.rawValue), forKey: Keys.providerRouteOrder)
+    }
+
+    private func saveProviderModelChoices() {
+        let payload = Dictionary(uniqueKeysWithValues: providerModelChoices.map { ($0.key.rawValue, $0.value) })
+        guard let data = try? JSONEncoder().encode(payload) else {
+            return
+        }
+        defaults.set(data, forKey: Keys.providerModelChoices)
+    }
+
+    private static func loadProviderSet(defaults: UserDefaults, key: String) -> Set<AssistantProvider> {
+        let rawValues = defaults.stringArray(forKey: key) ?? []
+        return Set(rawValues.compactMap(AssistantProvider.init(rawValue:)))
+    }
+
+    private static func loadProviderArray(defaults: UserDefaults, key: String) -> [AssistantProvider] {
+        let rawValues = defaults.stringArray(forKey: key) ?? []
+        let providers = rawValues.compactMap(AssistantProvider.init(rawValue:))
+        return providers.isEmpty ? AssistantProvider.defaultRouteOrder : providers
+    }
+
+    private static func loadModelChoices(defaults: UserDefaults, key: String) -> [AssistantProvider: ProviderModelChoice] {
+        guard let data = defaults.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([String: ProviderModelChoice].self, from: data)
+        else {
+            return [:]
+        }
+        return decoded.reduce(into: [AssistantProvider: ProviderModelChoice]()) { result, pair in
+            guard let provider = AssistantProvider(rawValue: pair.key) else {
+                return
+            }
+            result[provider] = pair.value
+        }
     }
 
     private enum Keys {
@@ -222,6 +408,9 @@ final class SettingsStore: ObservableObject {
         static let groqModel = "groqModel"
         static let ollamaModel = "ollamaModel"
         static let lmStudioModel = "lmStudioModel"
+        static let disabledProviders = "disabledProviders"
+        static let providerRouteOrder = "providerRouteOrder"
+        static let providerModelChoices = "providerModelChoices"
         static let hotKeyKeyCode = "hotKeyKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
     }

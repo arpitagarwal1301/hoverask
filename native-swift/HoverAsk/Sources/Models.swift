@@ -163,6 +163,7 @@ enum AssistantProvider: String, CaseIterable, Codable, Identifiable {
     static let cliProviders: [AssistantProvider] = [.codex, .claude, .cursor, .opencode, .antigravity]
     static let localProviders: [AssistantProvider] = [.appleIntelligence, .ollama, .lmStudio]
     static let byokProviders: [AssistantProvider] = [.openAI, .anthropic, .gemini, .openRouter, .groq]
+    static let defaultRouteOrder: [AssistantProvider] = cliProviders + localProviders + byokProviders
 }
 
 enum ProviderCategory: String, Codable, Identifiable {
@@ -177,6 +178,14 @@ enum ProviderCategory: String, Codable, Identifiable {
         case .cli: "Account CLI"
         case .local: "Private Local"
         case .byok: "BYOK Cloud"
+        }
+    }
+
+    var shortTitle: String {
+        switch self {
+        case .cli: "CLI"
+        case .local: "Local"
+        case .byok: "BYOK"
         }
     }
 }
@@ -324,6 +333,116 @@ enum ClaudeReasoningEffort: String, CaseIterable, Codable, Identifiable {
         case .high: "High"
         case .xhigh: "XHigh"
         case .max: "Max"
+        }
+    }
+}
+
+enum ProviderEffort: String, CaseIterable, Codable, Identifiable {
+    case `default`
+    case low
+    case medium
+    case high
+    case xhigh
+    case max
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .default: "Default"
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        case .xhigh: "XHigh"
+        case .max: "Max"
+        }
+    }
+
+    init(codex effort: CodexReasoningEffort) {
+        switch effort {
+        case .low: self = .low
+        case .medium: self = .medium
+        case .high: self = .high
+        case .xhigh: self = .xhigh
+        }
+    }
+
+    init(claude effort: ClaudeReasoningEffort) {
+        switch effort {
+        case .low: self = .low
+        case .medium: self = .medium
+        case .high: self = .high
+        case .xhigh: self = .xhigh
+        case .max: self = .max
+        }
+    }
+}
+
+struct ProviderModelChoice: Codable, Hashable, Identifiable {
+    var provider: AssistantProvider
+    var modelID: String
+    var effort: ProviderEffort
+    var displayTitle: String
+
+    var id: String { "\(provider.rawValue):\(modelID):\(effort.rawValue)" }
+
+    var isModelSelected: Bool {
+        !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    static func defaultChoice(for provider: AssistantProvider) -> ProviderModelChoice {
+        ProviderModelChoice(
+            provider: provider,
+            modelID: provider.defaultModel,
+            effort: provider.supportsEffort ? .medium : .default,
+            displayTitle: provider.defaultModel
+        )
+    }
+}
+
+enum ProviderReadinessState: Equatable {
+    case missing
+    case needsLogin
+    case keyRequired
+    case modelRequired
+    case ready
+    case disabled
+    case failed(String)
+
+    var title: String {
+        switch self {
+        case .missing: "Missing"
+        case .needsLogin: "Needs login"
+        case .keyRequired: "Not connected"
+        case .modelRequired: "Model required"
+        case .ready: "Ready"
+        case .disabled: "Disabled"
+        case .failed: "Failed"
+        }
+    }
+
+    var isReady: Bool {
+        if case .ready = self {
+            return true
+        }
+        return false
+    }
+}
+
+enum VoiceTestState: Equatable {
+    case idle
+    case testing(String)
+    case microphoneLevel(Double)
+    case passed(String)
+    case failed(String)
+
+    var title: String {
+        switch self {
+        case .idle: "Ready"
+        case .testing(let text): text
+        case .microphoneLevel: "Listening"
+        case .passed(let text): text
+        case .failed(let text): text
         }
     }
 }
@@ -505,9 +624,14 @@ struct ProviderRuntimeOptions {
     let claudeModel: ClaudeModel
     let claudeEffort: ClaudeReasoningEffort
     let providerModels: [AssistantProvider: String]
+    var disabledProviders: Set<AssistantProvider> = []
+    var providerRouteOrder: [AssistantProvider] = AssistantProvider.defaultRouteOrder
+    var providerModelChoices: [AssistantProvider: ProviderModelChoice] = [:]
 
     func model(for provider: AssistantProvider) -> String {
-        let model = providerModels[provider]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let model = providerModelChoices[provider]?.modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? providerModels[provider]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? ""
         return model.isEmpty ? provider.defaultModel : model
     }
 }

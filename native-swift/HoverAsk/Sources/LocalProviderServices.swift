@@ -5,7 +5,7 @@ import FoundationModels
 #endif
 
 enum SupportConfig {
-    static let supportURL: URL? = nil
+    static let supportURL = URL(string: "https://github.com/sponsors/arpitagarwal1301")
 }
 
 enum AppleIntelligenceService {

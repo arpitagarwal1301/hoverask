@@ -38,8 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         hotKeyController = HotKeyController(shortcut: settings.hotKeyShortcut) { [weak self] in
             DispatchQueue.main.async {
-                self?.viewModel.showOrb()
-                self?.viewModel.startListening()
+                self?.viewModel.toggleChatFromShortcut()
             }
         }
         viewModel.updateHotKeyRegistration(success: hotKeyController?.register() == true)

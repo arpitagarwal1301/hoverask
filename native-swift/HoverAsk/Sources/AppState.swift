@@ -28,6 +28,8 @@ final class OrbViewModel: ObservableObject {
     @Published var providerModelOptions: [AssistantProvider: [String]] = [:]
     @Published var companionVisualMotion = CompanionVisualMotion.idle
     @Published var hotKeyRegistrationMessage = ""
+    @Published var microphoneTestState: VoiceTestState = .idle
+    @Published var speechRecognitionTestState: VoiceTestState = .idle
 
     let settings: SettingsStore
     let history: HistoryStore
@@ -35,6 +37,8 @@ final class OrbViewModel: ObservableObject {
     private let engine = AssistantEngine()
     private let speechService = SpeechService()
     private let speechOutput = SpeechOutput()
+    private let microphoneTester = MicrophoneLevelTester()
+    private let speechRecognitionTester = SpeechRecognitionTester()
     private let motionController: CompanionMotionController
     private weak var windowController: OrbWindowController?
     private weak var settingsWindowController: SettingsWindowController?
@@ -185,6 +189,28 @@ final class OrbViewModel: ObservableObject {
         windowController?.apply(phase: phase)
     }
 
+    func toggleChatFromShortcut() {
+        guard let windowController else {
+            showOrb()
+            startListening()
+            return
+        }
+        if !windowController.isVisible {
+            showOrb()
+            startListening()
+            return
+        }
+        switch phase {
+        case .idle:
+            startListening()
+        case .chat, .listening, .thinking, .answer, .error:
+            collapse()
+        case .settings:
+            closeSettings()
+            phase = .idle
+        }
+    }
+
     func toggleOrbVisibility() {
         guard let windowController else {
             return
@@ -262,6 +288,7 @@ final class OrbViewModel: ObservableObject {
     }
 
     func login(provider: AssistantProvider) {
+        settings.setProviderDisabled(false, provider: provider)
         engine.openLogin(provider: provider)
         refreshHealth()
     }
@@ -269,6 +296,7 @@ final class OrbViewModel: ObservableObject {
     func saveBYOKKey(_ key: String, for provider: AssistantProvider) {
         do {
             try BYOKKeychain.save(key, for: provider)
+            settings.setProviderDisabled(false, provider: provider)
             providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "Key saved in macOS Keychain.", duration: nil)
             refreshHealth()
             fetchModels(for: provider)
@@ -286,6 +314,18 @@ final class OrbViewModel: ObservableObject {
         } catch {
             providerTestResults[provider] = ProviderTestResult(provider: provider, success: false, message: error.localizedDescription, duration: nil)
         }
+    }
+
+    func disconnectProvider(_ provider: AssistantProvider) {
+        settings.setProviderDisabled(true, provider: provider)
+        providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "\(provider.title) disconnected from HoverAsk routing.", duration: nil)
+        refreshHealth()
+    }
+
+    func reconnectProvider(_ provider: AssistantProvider) {
+        settings.setProviderDisabled(false, provider: provider)
+        providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "\(provider.title) enabled for HoverAsk routing.", duration: nil)
+        refreshHealth()
     }
 
     func testProvider(_ provider: AssistantProvider) {
@@ -319,11 +359,57 @@ final class OrbViewModel: ObservableObject {
         )
     }
 
+    func testMicrophone() {
+        microphoneTester.stop()
+        microphoneTestState = .testing("Requesting microphone")
+        microphoneTester.start { [weak self] level in
+            self?.microphoneTestState = .microphoneLevel(level)
+        } completion: { [weak self] result in
+            Task { @MainActor in
+                switch result {
+                case .success:
+                    self?.microphoneTestState = .testing("Speak now")
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(nanoseconds: 5_200_000_000)
+                        if case .microphoneLevel = self?.microphoneTestState {
+                            self?.microphoneTestState = .passed("Microphone works")
+                        } else if case .testing = self?.microphoneTestState {
+                            self?.microphoneTestState = .passed("Microphone allowed")
+                        }
+                    }
+                case .failure(let error):
+                    self?.microphoneTestState = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    func testSpeechRecognition() {
+        speechRecognitionTester.stop(cancel: true)
+        speechRecognitionTestState = .testing("Listening for test phrase")
+        speechRecognitionTester.start(locale: settings.voiceLocale) { [weak self] transcript in
+            self?.speechRecognitionTestState = .testing(transcript)
+        } completion: { [weak self] result in
+            Task { @MainActor in
+                switch result {
+                case .success(let transcript):
+                    let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                    self?.speechRecognitionTestState = trimmed.isEmpty
+                        ? .failed("No speech detected")
+                        : .passed(trimmed)
+                case .failure(let error):
+                    self?.speechRecognitionTestState = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
     func updateHotKeyRegistration(success: Bool) {
         hotKeyRegistrationMessage = success ? "Shortcut active." : "macOS rejected this shortcut. Try another combination."
     }
 
     private func applyFetchedModel(_ model: String, for provider: AssistantProvider) {
+        settings.setProviderModelID(model, for: provider)
         switch provider {
         case .ollama:
             if settings.ollamaModel == AssistantProvider.ollama.defaultModel {
@@ -453,7 +539,8 @@ final class OrbViewModel: ObservableObject {
         assistantTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let result = try await engine.ask(prompt, provider: providerSelection, options: runtimeOptions)
+                let context = sessionExchanges.filter { $0.id != exchangeID }
+                let result = try await engine.ask(prompt, provider: providerSelection, options: runtimeOptions, sessionContext: context)
                 if Task.isCancelled { return }
                 activeProvider = result.provider
                 answer = result.text

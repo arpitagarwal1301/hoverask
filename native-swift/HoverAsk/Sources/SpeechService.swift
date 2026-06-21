@@ -197,6 +197,187 @@ final class SpeechService: NSObject {
     }
 }
 
+final class MicrophoneLevelTester {
+    private let audioEngine = AVAudioEngine()
+
+    func start(onLevel: @escaping (Double) -> Void, completion: @escaping (Result<Void, SpeechServiceError>) -> Void) {
+        stop()
+        AVCaptureDevice.requestAccess(for: .audio) { [weak self] allowed in
+            DispatchQueue.main.async {
+                guard allowed else {
+                    completion(.failure(.microphoneDenied))
+                    return
+                }
+                self?.startEngine(onLevel: onLevel, completion: completion)
+            }
+        }
+    }
+
+    func stop() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.inputNode.removeTap(onBus: 0)
+    }
+
+    private func startEngine(onLevel: @escaping (Double) -> Void, completion: @escaping (Result<Void, SpeechServiceError>) -> Void) {
+        let inputNode = audioEngine.inputNode
+        inputNode.removeTap(onBus: 0)
+        let format = inputNode.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            completion(.failure(.microphoneFailed("No usable microphone input format was found.")))
+            return
+        }
+
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            let level = Self.level(from: buffer)
+            DispatchQueue.main.async {
+                onLevel(level)
+            }
+        }
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+            completion(.success(()))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+                self?.stop()
+            }
+        } catch {
+            completion(.failure(.microphoneFailed(error.localizedDescription)))
+        }
+    }
+
+    private static func level(from buffer: AVAudioPCMBuffer) -> Double {
+        guard let data = buffer.floatChannelData else {
+            return 0
+        }
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else {
+            return 0
+        }
+        let channelCount = Int(buffer.format.channelCount)
+        var total: Float = 0
+        for channel in 0..<channelCount {
+            let samples = data[channel]
+            for frame in 0..<frameCount {
+                let sample = samples[frame]
+                total += sample * sample
+            }
+        }
+        let rms = sqrt(total / Float(frameCount * max(channelCount, 1)))
+        return min(1, max(0, Double(rms) * 18))
+    }
+}
+
+final class SpeechRecognitionTester {
+    private let audioEngine = AVAudioEngine()
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private var speechRecognizer: SFSpeechRecognizer?
+    private var latestTranscript = ""
+    private var didFinish = false
+
+    func start(locale: VoiceLocale, onTranscript: @escaping (String) -> Void, completion: @escaping (Result<String, SpeechServiceError>) -> Void) {
+        stop(cancel: true)
+        latestTranscript = ""
+        didFinish = false
+
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            guard status == .authorized else {
+                DispatchQueue.main.async { completion(.failure(.speechDenied)) }
+                return
+            }
+            AVCaptureDevice.requestAccess(for: .audio) { allowed in
+                DispatchQueue.main.async {
+                    guard allowed else {
+                        completion(.failure(.microphoneDenied))
+                        return
+                    }
+                    self?.startRecognition(locale: locale, onTranscript: onTranscript, completion: completion)
+                }
+            }
+        }
+    }
+
+    func stop(cancel: Bool = false) {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest = nil
+        if cancel {
+            didFinish = true
+        }
+    }
+
+    private func startRecognition(locale: VoiceLocale, onTranscript: @escaping (String) -> Void, completion: @escaping (Result<String, SpeechServiceError>) -> Void) {
+        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: locale.rawValue))
+        guard let speechRecognizer, speechRecognizer.isAvailable else {
+            completion(.failure(.recognizerUnavailable))
+            return
+        }
+
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        recognitionRequest = request
+
+        let inputNode = audioEngine.inputNode
+        inputNode.removeTap(onBus: 0)
+        let format = inputNode.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            completion(.failure(.microphoneFailed("No usable microphone input format was found.")))
+            return
+        }
+
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak request] buffer, _ in
+            request?.append(buffer)
+        }
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+        } catch {
+            completion(.failure(.microphoneFailed(error.localizedDescription)))
+            return
+        }
+
+        recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
+            DispatchQueue.main.async {
+                guard let self, !self.didFinish else { return }
+                if let result {
+                    let text = result.bestTranscription.formattedString
+                    if !text.isEmpty {
+                        self.latestTranscript = text
+                        onTranscript(text)
+                    }
+                    if result.isFinal {
+                        self.finish(completion: completion)
+                    }
+                } else if let error {
+                    self.stop(cancel: true)
+                    completion(.failure(.microphoneFailed(error.localizedDescription)))
+                }
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) { [weak self] in
+            self?.finish(completion: completion)
+        }
+    }
+
+    private func finish(completion: @escaping (Result<String, SpeechServiceError>) -> Void) {
+        guard !didFinish else { return }
+        didFinish = true
+        let transcript = latestTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        stop(cancel: false)
+        completion(.success(transcript))
+    }
+}
+
 @MainActor
 final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()

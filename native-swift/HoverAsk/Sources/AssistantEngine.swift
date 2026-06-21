@@ -60,20 +60,28 @@ final class AssistantEngine {
         }
     }
 
-    func ask(_ prompt: String, provider selection: ProviderSelection, options: ProviderRuntimeOptions) async throws -> AssistantResult {
+    func ask(_ prompt: String, provider selection: ProviderSelection, options: ProviderRuntimeOptions, sessionContext: [SessionExchange] = []) async throws -> AssistantResult {
         let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPrompt.isEmpty else {
             throw AssistantEngineError.emptyPrompt
         }
 
-        let preparedPrompt = buildPrompt(trimmedPrompt)
+        let preparedPrompt = buildPrompt(trimmedPrompt, sessionContext: sessionContext)
         let baseProviderOrder = selection == .auto
-            ? AssistantProvider.cliProviders + AssistantProvider.localProviders + AssistantProvider.byokProviders
+            ? options.providerRouteOrder
             : selection.provider.map { [$0] } ?? []
-        let providerOrder = selection == .auto ? await readyProviders(from: baseProviderOrder) : baseProviderOrder
+        let providerOrder = selection == .auto ? await readyProviders(from: baseProviderOrder, options: options) : baseProviderOrder
 
         var lastError = ""
         for provider in providerOrder {
+            guard !options.disabledProviders.contains(provider) else {
+                lastError = "\(provider.title) is disconnected from HoverAsk."
+                continue
+            }
+            guard hasRequiredModel(provider, options: options) else {
+                lastError = "\(provider.title) needs a selected model before it can answer."
+                continue
+            }
             do {
                 return try await runProvider(provider, prompt: preparedPrompt, options: options)
             } catch {
@@ -160,15 +168,29 @@ final class AssistantEngine {
         return AssistantResult(provider: provider, text: answer, duration: Date().timeIntervalSince(started))
     }
 
-    private func readyProviders(from providers: [AssistantProvider]) async -> [AssistantProvider] {
+    private func readyProviders(from providers: [AssistantProvider], options: ProviderRuntimeOptions) async -> [AssistantProvider] {
         let health = await healthCheck()
         let ready = providers.filter { provider in
+            guard !options.disabledProviders.contains(provider),
+                  hasRequiredModel(provider, options: options)
+            else {
+                return false
+            }
             guard let match = health.first(where: { $0.provider == provider }) else {
                 return false
             }
             return match.installed && match.authenticated
         }
-        return ready.isEmpty ? providers : ready
+        return ready
+    }
+
+    private func hasRequiredModel(_ provider: AssistantProvider, options: ProviderRuntimeOptions) -> Bool {
+        switch provider.category {
+        case .byok, .local:
+            return !options.model(for: provider).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .cli:
+            return true
+        }
     }
 
     private func providerSpec(_ provider: AssistantProvider, prompt: String, options: ProviderRuntimeOptions) -> (command: String, arguments: [String], stdin: String?) {
@@ -260,17 +282,34 @@ final class AssistantEngine {
         }
     }
 
-    private func buildPrompt(_ userPrompt: String) -> String {
-        [
+    private func buildPrompt(_ userPrompt: String, sessionContext: [SessionExchange]) -> String {
+        var parts = [
             "You are a concise floating desktop voice assistant.",
-            "Answer conversationally and directly. Keep the response useful when it will be spoken aloud.",
+            "Answer conversationally and directly in a spoken-friendly style.",
+            "Prefer short, useful answers unless the user asks for detail.",
             "Do not edit files, run commands, or inspect the workspace.",
             "If the request needs current private app/page context, say that screen awareness is not enabled in this MVP.",
             "Reply in the same language style as the user. If the user mixes Hindi and English, reply naturally in Hinglish.",
-            "",
-            "User question:",
-            userPrompt
-        ].joined(separator: "\n")
+        ]
+
+        let previous = sessionContext
+            .filter { $0.status == .answered }
+            .suffix(4)
+        if !previous.isEmpty {
+            parts.append("")
+            parts.append("Current conversation context:")
+            for exchange in previous {
+                parts.append("User: \(exchange.question)")
+                if !exchange.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    parts.append("HoverAsk: \(exchange.answer)")
+                }
+            }
+        }
+
+        parts.append("")
+        parts.append("User question:")
+        parts.append(userPrompt)
+        return parts.joined(separator: "\n")
     }
 
     private func humanize(provider: AssistantProvider, error: String) -> String {
