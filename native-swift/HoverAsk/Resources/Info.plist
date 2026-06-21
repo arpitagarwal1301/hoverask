@@ -10,6 +10,8 @@
   <string>HoverAsk</string>
   <key>CFBundleDisplayName</key>
   <string>HoverAsk</string>
+  <key>CFBundleIconFile</key>
+  <string>HoverAskIcon</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

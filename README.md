@@ -4,9 +4,9 @@
   <img src="docs/assets/hoverask-v1-final-preview.png" alt="HoverAsk preview showing a native macOS floating voice assistant with a refractive glass orb, companion avatars, and anchored answer bubble" width="100%">
 </p>
 
-HoverAsk is a native macOS floating voice assistant that sits above other apps. Tap the glass orb or companion, speak in English or Hinglish, and HoverAsk sends the transcribed question to your logged-in local AI CLI account. The answer appears in a compact anchored bubble and can be spoken aloud.
+HoverAsk is a native macOS floating voice assistant that sits above other apps. Tap the glass orb or companion, speak in English or Hinglish, and HoverAsk sends the transcribed question to your selected AI source. The answer appears in a compact anchored bubble and can be spoken aloud.
 
-This is a personal/local prototype. It does not use API keys yet, does not capture screenshots, and does not scrape browser content.
+This is a personal/local prototype. It supports logged-in CLI providers, local model servers, and optional BYOK providers with keys stored in macOS Keychain. It does not capture screenshots and does not scrape browser content.
 
 ## Download
 
@@ -22,19 +22,21 @@ Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The app is 
 - Native SwiftUI/AppKit macOS app with a floating always-on-top panel.
 - Voice-first question flow using macOS Speech Recognition and microphone input.
 - Spoken replies using the built-in macOS speech synthesizer.
-- Provider choices: Auto, Codex, Claude, Cursor, OpenCode, or Antigravity when the matching CLI is ready.
+- Provider choices: Auto, account-backed CLIs, private local providers, or BYOK cloud providers.
 - Account-backed execution through local CLIs:
   - `codex exec`
   - `claude -p`
   - `cursor-agent`
   - `opencode`
   - `agy`
-- CLI provider status rows with install/info/login affordances.
+- Functional provider rows with install/info/login, Keychain connect/delete, model selection, and test actions.
+- BYOK providers: OpenAI, Anthropic, Gemini, OpenRouter, and Groq with local Keychain storage.
+- Private local providers: Apple Intelligence availability, Ollama, and LM Studio detection/testing.
 - Minimal avatars: Glass Orb, Glass Dog, and Glass Cat.
 - Privacy-safe refractive glass orb with visible idle/listening rings.
 - Optional companion movement: stationary, roam, or chase cursor.
-- More readable glass settings, local history size, and incremental history loading.
-- BYOK/API-key providers are planned for a future Keychain-backed implementation.
+- More readable glass settings, local history size, incremental history loading, and Markdown/JSON history export.
+- Editable global wake hotkey.
 
 ## Requirements
 
@@ -45,6 +47,8 @@ Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The app is 
 - Optional logged-in Cursor CLI account for Cursor provider support.
 - Optional configured OpenCode CLI for OpenCode provider support.
 - Optional Antigravity CLI for Antigravity provider support.
+- Optional API keys for BYOK cloud providers. Keys are stored only in macOS Keychain.
+- Optional Ollama or LM Studio local servers for private local model routes.
 - Microphone and Speech Recognition permissions granted to HoverAsk on first launch.
 
 ## Build
@@ -79,9 +83,9 @@ The DMG is created at:
 outputs/HoverAsk-v1.1.0-macos.dmg
 ```
 
-## Provider Auth
+## Provider Auth And Keys
 
-HoverAsk does not ask for API keys in this build. It shells out to locally installed CLIs that are already logged in.
+HoverAsk can shell out to locally installed CLIs that are already logged in, or it can use BYOK cloud providers whose keys are stored only in macOS Keychain under `app.hoverask.byok`.
 
 For Codex, install and log in to the Codex CLI, then verify:
 
@@ -103,9 +107,21 @@ opencode --version
 agy --version
 ```
 
-Only ready providers appear in the provider picker. `Auto` tries ready providers in this order: Codex, Claude, Cursor, OpenCode, then Antigravity.
+Only ready providers appear in quick provider pickers. `Auto` tries ready providers in this order: account CLIs, private local providers, then BYOK cloud providers.
 
-Google Gemini CLI is not exposed as a runnable CLI provider for individual account sign-in. Gemini is planned for the future BYOK implementation, where keys will be stored in macOS Keychain.
+BYOK providers can be connected from Settings -> Providers:
+
+- OpenAI
+- Anthropic
+- Gemini
+- OpenRouter
+- Groq
+
+Private local providers can be tested from Settings -> Providers:
+
+- Apple Intelligence, when supported by macOS and the build SDK
+- Ollama at `localhost:11434`
+- LM Studio at `localhost:1234`
 
 ## Usage
 
@@ -122,11 +138,13 @@ The status menu includes show/hide, settings, and quit controls.
 
 - No screenshots or screen content are captured.
 - No browser scraping is performed.
-- No API keys are collected in this build.
-- Prompts are sent only to the selected local CLI provider process.
+- BYOK API keys are stored only in macOS Keychain.
+- Prompts are sent only to the selected provider route.
 - Settings and optional history are stored locally under the user's Application Support directory.
+- Saved chat history can be exported as Markdown or JSON.
 
 See [PRIVACY.md](PRIVACY.md) for details.
+See [TERMS.md](TERMS.md) for prototype terms and limitations.
 
 ## Third-Party Notices
 

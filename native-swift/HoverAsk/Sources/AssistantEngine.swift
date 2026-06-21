@@ -21,6 +21,8 @@ enum AssistantEngineError: LocalizedError {
 final class AssistantEngine {
     private let runtimeDirectory: URL
     private let processRunner = ProcessRunner()
+    private let byokClient = BYOKClient()
+    private let localClient = LocalModelClient()
 
     init() {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -32,8 +34,21 @@ final class AssistantEngine {
     func healthCheck() async -> [ProviderHealth] {
         await withTaskGroup(of: ProviderHealth.self) { group in
             for provider in AssistantProvider.allCases {
-                group.addTask { [processRunner] in
-                    processRunner.health(provider: provider)
+                group.addTask { [processRunner, localClient] in
+                    switch provider.category {
+                    case .cli:
+                        return processRunner.health(provider: provider)
+                    case .local:
+                        return await localClient.health(provider: provider, model: provider.defaultModel)
+                    case .byok:
+                        let connected = BYOKKeychain.hasKey(for: provider)
+                        return ProviderHealth(
+                            provider: provider,
+                            installed: true,
+                            authenticated: connected,
+                            detail: connected ? "API key stored in macOS Keychain." : "No API key connected."
+                        )
+                    }
                 }
             }
 
@@ -52,17 +67,10 @@ final class AssistantEngine {
         }
 
         let preparedPrompt = buildPrompt(trimmedPrompt)
-        let baseProviderOrder: [AssistantProvider] = {
-            switch selection {
-            case .auto: [.codex, .claude, .cursor, .opencode, .antigravity]
-            case .codex: [.codex]
-            case .claude: [.claude]
-            case .cursor: [.cursor]
-            case .opencode: [.opencode]
-            case .antigravity: [.antigravity]
-            }
-        }()
-        let providerOrder = selection == .auto ? readyProviders(from: baseProviderOrder) : baseProviderOrder
+        let baseProviderOrder = selection == .auto
+            ? AssistantProvider.cliProviders + AssistantProvider.localProviders + AssistantProvider.byokProviders
+            : selection.provider.map { [$0] } ?? []
+        let providerOrder = selection == .auto ? await readyProviders(from: baseProviderOrder) : baseProviderOrder
 
         var lastError = ""
         for provider in providerOrder {
@@ -78,11 +86,54 @@ final class AssistantEngine {
 
     @MainActor
     func openLogin(provider: AssistantProvider) {
+        guard provider.category == .cli else {
+            return
+        }
         processRunner.openLogin(provider: provider, runtimeDirectory: runtimeDirectory)
+    }
+
+    func testProvider(_ provider: AssistantProvider, options: ProviderRuntimeOptions) async -> ProviderTestResult {
+        let started = Date()
+        do {
+            let result = try await runProvider(provider, prompt: "Reply with exactly: HoverAsk provider test OK.", options: options)
+            let clean = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return ProviderTestResult(
+                provider: provider,
+                success: !clean.isEmpty,
+                message: clean.isEmpty ? "No response text." : "Test passed: \(clean)",
+                duration: Date().timeIntervalSince(started)
+            )
+        } catch {
+            return ProviderTestResult(provider: provider, success: false, message: error.localizedDescription, duration: nil)
+        }
+    }
+
+    func fetchModels(provider: AssistantProvider) async throws -> [String] {
+        switch provider.category {
+        case .byok:
+            return try await byokClient.fetchModels(provider: provider)
+        case .local:
+            return try await localClient.fetchModels(provider: provider)
+        case .cli:
+            return [provider.defaultModel]
+        }
     }
 
     private func runProvider(_ provider: AssistantProvider, prompt: String, options: ProviderRuntimeOptions) async throws -> AssistantResult {
         let started = Date()
+        switch provider.category {
+        case .cli:
+            return try await runCLIProvider(provider, prompt: prompt, options: options, started: started)
+        case .local:
+            let text = try await localClient.ask(provider: provider, prompt: prompt, model: options.model(for: provider))
+            return AssistantResult(provider: provider, text: cleanCliText(text), duration: Date().timeIntervalSince(started))
+        case .byok:
+            let text = try await byokClient.ask(provider: provider, prompt: prompt, model: options.model(for: provider))
+            return AssistantResult(provider: provider, text: cleanCliText(text), duration: Date().timeIntervalSince(started))
+        }
+    }
+
+    private func runCLIProvider(_ provider: AssistantProvider, prompt: String, options: ProviderRuntimeOptions, started: Date) async throws -> AssistantResult {
         let spec = providerSpec(provider, prompt: prompt, options: options)
 
         let output = await processRunner.run(
@@ -109,10 +160,13 @@ final class AssistantEngine {
         return AssistantResult(provider: provider, text: answer, duration: Date().timeIntervalSince(started))
     }
 
-    private func readyProviders(from providers: [AssistantProvider]) -> [AssistantProvider] {
+    private func readyProviders(from providers: [AssistantProvider]) async -> [AssistantProvider] {
+        let health = await healthCheck()
         let ready = providers.filter { provider in
-            let health = processRunner.health(provider: provider)
-            return health.installed && health.authenticated
+            guard let match = health.first(where: { $0.provider == provider }) else {
+                return false
+            }
+            return match.installed && match.authenticated
         }
         return ready.isEmpty ? providers : ready
     }
@@ -201,6 +255,8 @@ final class AssistantEngine {
                 ],
                 nil
             )
+        case .appleIntelligence, .ollama, .lmStudio, .openAI, .anthropic, .gemini, .openRouter, .groq:
+            fatalError("Non-CLI provider passed to providerSpec.")
         }
     }
 
@@ -238,6 +294,9 @@ struct ProcessOutput {
 
 final class ProcessRunner {
     func health(provider: AssistantProvider) -> ProviderHealth {
+        guard provider.category == .cli else {
+            return ProviderHealth(provider: provider, installed: false, authenticated: false, detail: "Not a CLI provider.")
+        }
         var version = quickRun(command: command(for: provider), arguments: ["--version"], timeout: 4)
         if version.exitCode != 0, provider == .antigravity {
             version = quickRun(command: command(for: provider), arguments: ["--help"], timeout: 4)
@@ -258,6 +317,8 @@ final class ProcessRunner {
                 quickRun(command: "opencode", arguments: ["auth", "list"], timeout: 6)
             case .antigravity:
                 ProcessOutput(stdout: "Installed. Antigravity CLI command agy was found.", stderr: "", exitCode: 0, timedOut: false)
+            case .appleIntelligence, .ollama, .lmStudio, .openAI, .anthropic, .gemini, .openRouter, .groq:
+                ProcessOutput(stdout: "", stderr: "Not a CLI provider.", exitCode: 1, timedOut: false)
             }
         }()
 
@@ -288,6 +349,8 @@ final class ProcessRunner {
         case .antigravity:
             executable = "agy"
             arguments = "login"
+        case .appleIntelligence, .ollama, .lmStudio, .openAI, .anthropic, .gemini, .openRouter, .groq:
+            return
         }
 
         let script = """
@@ -378,6 +441,7 @@ final class ProcessRunner {
         case .cursor: "cursor-agent"
         case .opencode: "opencode"
         case .antigravity: "agy"
+        case .appleIntelligence, .ollama, .lmStudio, .openAI, .anthropic, .gemini, .openRouter, .groq: ""
         }
     }
 
@@ -413,6 +477,8 @@ private func isAuthenticated(provider: AssistantProvider, exitCode: Int32, text:
         return !looksLikeAuthError(text) && !lower.contains("no provider") && !lower.contains("not configured") && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     case .antigravity:
         return true
+    case .appleIntelligence, .ollama, .lmStudio, .openAI, .anthropic, .gemini, .openRouter, .groq:
+        return false
     }
 }
 

@@ -22,7 +22,12 @@ final class OrbViewModel: ObservableObject {
     @Published var isChatExpanded = false
     @Published var activeProvider: AssistantProvider?
     @Published var providerHealth: [ProviderHealth] = []
+    @Published var isRefreshingProviderHealth = false
+    @Published var providerHealthLastRefreshed: Date?
+    @Published var providerTestResults: [AssistantProvider: ProviderTestResult] = [:]
+    @Published var providerModelOptions: [AssistantProvider: [String]] = [:]
     @Published var companionVisualMotion = CompanionVisualMotion.idle
+    @Published var hotKeyRegistrationMessage = ""
 
     let settings: SettingsStore
     let history: HistoryStore
@@ -32,6 +37,7 @@ final class OrbViewModel: ObservableObject {
     private let speechOutput = SpeechOutput()
     private let motionController: CompanionMotionController
     private weak var windowController: OrbWindowController?
+    private weak var settingsWindowController: SettingsWindowController?
     private var assistantTask: Task<Void, Never>?
     private var interactionToken = UUID()
     private var activeExchangeID: UUID?
@@ -53,6 +59,10 @@ final class OrbViewModel: ObservableObject {
         self.windowController = windowController
         motionController.attach(windowController: windowController)
         windowController.apply(phase: phase)
+    }
+
+    func attach(settingsWindowController: SettingsWindowController) {
+        self.settingsWindowController = settingsWindowController
     }
 
     func primaryOrbAction() {
@@ -206,11 +216,20 @@ final class OrbViewModel: ObservableObject {
         typedPrompt = ""
         inputStatusMessage = ""
         refreshHealth()
-        phase = .settings
+        if phase == .listening {
+            phase = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .chat : .answer
+        }
+        if phase == .settings {
+            phase = .idle
+        }
+        settingsWindowController?.show()
     }
 
     func closeSettings() {
-        phase = .idle
+        settingsWindowController?.hide()
+        if phase == .settings {
+            phase = .idle
+        }
     }
 
     func clearHistory() {
@@ -231,8 +250,14 @@ final class OrbViewModel: ObservableObject {
     }
 
     func refreshHealth() {
+        guard !isRefreshingProviderHealth else {
+            return
+        }
+        isRefreshingProviderHealth = true
         Task {
             providerHealth = await engine.healthCheck()
+            providerHealthLastRefreshed = Date()
+            isRefreshingProviderHealth = false
         }
     }
 
@@ -241,12 +266,96 @@ final class OrbViewModel: ObservableObject {
         refreshHealth()
     }
 
+    func saveBYOKKey(_ key: String, for provider: AssistantProvider) {
+        do {
+            try BYOKKeychain.save(key, for: provider)
+            providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "Key saved in macOS Keychain.", duration: nil)
+            refreshHealth()
+            fetchModels(for: provider)
+        } catch {
+            providerTestResults[provider] = ProviderTestResult(provider: provider, success: false, message: error.localizedDescription, duration: nil)
+        }
+    }
+
+    func deleteBYOKKey(for provider: AssistantProvider) {
+        do {
+            try BYOKKeychain.delete(for: provider)
+            providerModelOptions[provider] = []
+            providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "Key removed from Keychain.", duration: nil)
+            refreshHealth()
+        } catch {
+            providerTestResults[provider] = ProviderTestResult(provider: provider, success: false, message: error.localizedDescription, duration: nil)
+        }
+    }
+
+    func testProvider(_ provider: AssistantProvider) {
+        providerTestResults[provider] = ProviderTestResult(provider: provider, success: false, message: "Testing...", duration: nil)
+        Task {
+            let result = await engine.testProvider(provider, options: settings.providerRuntimeOptions)
+            providerTestResults[provider] = result
+            refreshHealth()
+        }
+    }
+
+    func fetchModels(for provider: AssistantProvider) {
+        Task {
+            do {
+                let models = try await engine.fetchModels(provider: provider)
+                providerModelOptions[provider] = models
+                if let first = models.first {
+                    applyFetchedModel(first, for: provider)
+                }
+            } catch {
+                providerTestResults[provider] = ProviderTestResult(provider: provider, success: false, message: error.localizedDescription, duration: nil)
+            }
+        }
+    }
+
     func previewVoice() {
         speechOutput.speak(
             "Hi, HoverAsk is ready. Ask me in English or Hinglish.",
             voice: settings.speechVoice,
             rate: settings.speechRate
         )
+    }
+
+    func updateHotKeyRegistration(success: Bool) {
+        hotKeyRegistrationMessage = success ? "Shortcut active." : "macOS rejected this shortcut. Try another combination."
+    }
+
+    private func applyFetchedModel(_ model: String, for provider: AssistantProvider) {
+        switch provider {
+        case .ollama:
+            if settings.ollamaModel == AssistantProvider.ollama.defaultModel {
+                settings.ollamaModel = model
+            }
+        case .lmStudio:
+            if settings.lmStudioModel == AssistantProvider.lmStudio.defaultModel {
+                settings.lmStudioModel = model
+            }
+        case .openAI:
+            if settings.openAIModel == AssistantProvider.openAI.defaultModel {
+                settings.openAIModel = model
+            }
+        case .anthropic:
+            if settings.anthropicModel == AssistantProvider.anthropic.defaultModel {
+                settings.anthropicModel = model
+            }
+        case .gemini:
+            if settings.geminiModel == AssistantProvider.gemini.defaultModel {
+                settings.geminiModel = model
+            }
+        case .openRouter:
+            if settings.openRouterModel == AssistantProvider.openRouter.defaultModel {
+                settings.openRouterModel = model
+            }
+        case .groq:
+            if settings.groqModel == AssistantProvider.groq.defaultModel {
+                settings.groqModel = model
+            }
+        case .codex, .claude, .cursor, .opencode, .antigravity, .appleIntelligence:
+            break
+        }
     }
 
     private func configureSpeechCallbacks() {

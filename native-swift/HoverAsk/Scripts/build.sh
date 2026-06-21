@@ -25,6 +25,7 @@ swiftc \
   -framework Speech \
   -framework AVFoundation \
   -framework Carbon \
+  -framework Security \
   "$SOURCES_DIR"/*.swift \
   -o "$MACOS_DIR/HoverAsk"
 

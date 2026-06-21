@@ -2,9 +2,9 @@
 
 ![HoverAsk preview](https://raw.githubusercontent.com/arpitagarwal1301/hoverask/main/docs/assets/hoverask-v1-final-preview.png)
 
-HoverAsk v1.1.0 expands the local account-backed provider layer and cleans up Settings so the app is easier to run with the CLI accounts users already have.
+HoverAsk v1.1.0 expands the provider layer and cleans up Settings so the app is easier to run with CLI accounts, private local models, or BYOK cloud providers.
 
-The app remains local-first: no API keys are collected, no screenshots are captured, and provider requests are routed through installed CLIs on the user's Mac.
+The app remains local-first by default: no screenshots are captured, local history is optional, and BYOK API keys are stored only in macOS Keychain.
 
 ## Download
 
@@ -13,12 +13,14 @@ The app remains local-first: no API keys are collected, no screenshots are captu
 ## Highlights
 
 - Added CLI provider support for Cursor, OpenCode, and Antigravity alongside Codex and Claude.
-- `Auto` now uses ready-provider health checks before falling back through local CLIs.
-- Settings now has clearer `CLI providers` rows with status, info, and login actions.
-- Settings readability is improved with a darker glass panel and stronger section surfaces.
-- Local history now shows saved count plus storage size and supports incremental `Load more`.
-- Google Gemini is moved out of CLI providers and reserved for the future BYOK path.
-- BYOK remains roadmap-only in this build; no API keys are requested or stored.
+- Added BYOK providers for OpenAI, Anthropic, Gemini, OpenRouter, and Groq with Keychain storage.
+- Added private local provider detection/testing for Apple Intelligence, Ollama, and LM Studio.
+- `Auto` now falls back through account CLIs, private local providers, then BYOK cloud providers.
+- Providers now include model selection, effort controls where supported, and per-provider test actions.
+- Settings has clearer sections: AI Assistant, Voice, Avatar, Providers, Chat History, and Advanced.
+- Chat History now supports Markdown and JSON export.
+- Advanced now focuses on editable wake hotkey and reset settings.
+- Privacy and Terms docs are linked from the app and repository.
 
 ## Build Artifact
 
@@ -30,6 +32,8 @@ The app remains local-first: no API keys are collected, no screenshots are captu
 - Xcode Command Line Tools.
 - Logged-in Codex CLI and/or Claude Code CLI.
 - Optional Cursor, OpenCode, or Antigravity CLI for additional provider routes.
+- Optional API keys for BYOK routes, stored in macOS Keychain.
+- Optional Ollama or LM Studio local servers.
 - Microphone and Speech Recognition permissions.
 
 ## Notes

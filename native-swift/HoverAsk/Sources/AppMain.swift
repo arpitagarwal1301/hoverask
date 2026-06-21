@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -7,9 +8,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var history: HistoryStore!
     private var viewModel: OrbViewModel!
     private var windowController: OrbWindowController!
+    private var settingsWindowController: SettingsWindowController!
     private var hotKeyController: HotKeyController?
     private var statusItem: NSStatusItem?
     private var showHideMenuItem: NSMenuItem?
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -23,18 +26,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let rootView = OrbRootView(viewModel: viewModel)
             .environmentObject(settings)
             .environmentObject(history)
+        let settingsView = SettingsRootView(viewModel: viewModel)
+            .environmentObject(settings)
+            .environmentObject(history)
 
         windowController.setRootView(rootView)
+        settingsWindowController = SettingsWindowController(rootView: settingsView)
+        viewModel.attach(settingsWindowController: settingsWindowController)
         windowController.show()
         configureStatusMenu()
 
-        hotKeyController = HotKeyController { [weak self] in
+        hotKeyController = HotKeyController(shortcut: settings.hotKeyShortcut) { [weak self] in
             DispatchQueue.main.async {
                 self?.viewModel.showOrb()
                 self?.viewModel.startListening()
             }
         }
-        hotKeyController?.register()
+        viewModel.updateHotKeyRegistration(success: hotKeyController?.register() == true)
+        settings.$hotKeyShortcut
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] shortcut in
+                guard let self else { return }
+                let success = self.hotKeyController?.update(shortcut: shortcut) == true
+                if !success, let activeShortcut = self.hotKeyController?.activeShortcut, self.settings.hotKeyShortcut != activeShortcut {
+                    self.settings.hotKeyShortcut = activeShortcut
+                }
+                self.viewModel.updateHotKeyRegistration(success: success)
+            }
+            .store(in: &cancellables)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -63,6 +83,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsItem.target = self
         menu.addItem(settingsItem)
 
+        let supportItem = NSMenuItem(title: "Support HoverAsk", action: #selector(openSupportFromMenu), keyEquivalent: "")
+        supportItem.target = self
+        supportItem.isEnabled = SupportConfig.supportURL != nil
+        menu.addItem(supportItem)
+
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitFromMenu), keyEquivalent: "q")
@@ -79,6 +104,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openSettingsFromMenu() {
         viewModel.openSettings()
+    }
+
+    @objc private func openSupportFromMenu() {
+        guard let url = SupportConfig.supportURL else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func quitFromMenu() {

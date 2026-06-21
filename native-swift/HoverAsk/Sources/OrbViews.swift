@@ -681,20 +681,7 @@ struct MinimalChatChipView: View {
     }
 
     private var thinkingProviderTitle: String {
-        switch settings.provider {
-        case .auto:
-            return "Provider"
-        case .codex:
-            return "Codex"
-        case .claude:
-            return "Claude"
-        case .cursor:
-            return "Cursor"
-        case .opencode:
-            return "OpenCode"
-        case .antigravity:
-            return "Antigravity"
-        }
+        settings.provider == .auto ? "Provider" : settings.provider.title
     }
 
     private func scrollToLatestChatAnchor(_ proxy: ScrollViewProxy) {
@@ -1068,7 +1055,6 @@ struct SettingsPanel: View {
                     providerStatusGroup
                     providerModelGroup
                     historyGroup
-                    byokRoadmapGroup
                 }
                 .padding(.bottom, 2)
             }
@@ -1241,25 +1227,11 @@ struct SettingsPanel: View {
         .groupBoxStyle(GlassGroupBoxStyle())
     }
 
-    private var byokRoadmapGroup: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("BYOK implementation next: Google Gemini, OpenAI, Anthropic, OpenRouter, and Groq.")
-                Text("API keys will be stored only in macOS Keychain after explicit confirmation.")
-            }
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundStyle(.white.opacity(0.68))
-        } label: {
-            Text("Advanced BYOK implementation")
-        }
-        .groupBoxStyle(GlassGroupBoxStyle())
-    }
-
     private var providerPickerOptions: [ProviderSelection] {
         var options: [ProviderSelection] = [.auto]
         for provider in [AssistantProvider.codex, .claude, .cursor, .opencode, .antigravity] {
-            if isReady(provider), let selection = selection(for: provider) {
-                options.append(selection)
+            if isReady(provider) {
+                options.append(provider.selection)
             }
         }
         if !options.contains(settings.provider) {
@@ -1275,21 +1247,6 @@ struct SettingsPanel: View {
             return provider == .codex || provider == .claude
         }
         return health.installed && health.authenticated
-    }
-
-    private func selection(for provider: AssistantProvider) -> ProviderSelection? {
-        switch provider {
-        case .codex:
-            return .codex
-        case .claude:
-            return .claude
-        case .cursor:
-            return .cursor
-        case .opencode:
-            return .opencode
-        case .antigravity:
-            return .antigravity
-        }
     }
 
     private func cliProviderRow(_ health: ProviderHealth) -> some View {
@@ -1343,12 +1300,7 @@ struct SettingsPanel: View {
     }
 
     private func supportsLogin(_ provider: AssistantProvider) -> Bool {
-        switch provider {
-        case .codex, .claude, .cursor, .opencode:
-            return true
-        case .antigravity:
-            return false
-        }
+        provider.category == .cli && provider != .antigravity
     }
 
     private func docsURL(for provider: AssistantProvider) -> URL? {
@@ -1363,6 +1315,22 @@ struct SettingsPanel: View {
             return URL(string: "https://opencode.ai/docs/cli/")
         case .antigravity:
             return URL(string: "https://antigravity.google/docs/cli-using")
+        case .appleIntelligence:
+            return URL(string: "https://developer.apple.com/apple-intelligence/")
+        case .ollama:
+            return URL(string: "https://ollama.com/download")
+        case .lmStudio:
+            return URL(string: "https://lmstudio.ai/")
+        case .openAI:
+            return URL(string: "https://platform.openai.com/api-keys")
+        case .anthropic:
+            return URL(string: "https://console.anthropic.com/settings/keys")
+        case .gemini:
+            return URL(string: "https://aistudio.google.com/app/apikey")
+        case .openRouter:
+            return URL(string: "https://openrouter.ai/keys")
+        case .groq:
+            return URL(string: "https://console.groq.com/keys")
         }
     }
 

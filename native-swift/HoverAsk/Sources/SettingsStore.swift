@@ -63,6 +63,41 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(companionMovementMode.rawValue, forKey: Keys.companionMovementMode) }
     }
 
+    @Published var openAIModel: String {
+        didSet { defaults.set(openAIModel, forKey: Keys.openAIModel) }
+    }
+
+    @Published var anthropicModel: String {
+        didSet { defaults.set(anthropicModel, forKey: Keys.anthropicModel) }
+    }
+
+    @Published var geminiModel: String {
+        didSet { defaults.set(geminiModel, forKey: Keys.geminiModel) }
+    }
+
+    @Published var openRouterModel: String {
+        didSet { defaults.set(openRouterModel, forKey: Keys.openRouterModel) }
+    }
+
+    @Published var groqModel: String {
+        didSet { defaults.set(groqModel, forKey: Keys.groqModel) }
+    }
+
+    @Published var ollamaModel: String {
+        didSet { defaults.set(ollamaModel, forKey: Keys.ollamaModel) }
+    }
+
+    @Published var lmStudioModel: String {
+        didSet { defaults.set(lmStudioModel, forKey: Keys.lmStudioModel) }
+    }
+
+    @Published var hotKeyShortcut: HotKeyShortcut {
+        didSet {
+            defaults.set(Int(hotKeyShortcut.keyCode), forKey: Keys.hotKeyKeyCode)
+            defaults.set(Int(hotKeyShortcut.modifiers), forKey: Keys.hotKeyModifiers)
+        }
+    }
+
     private let defaults = UserDefaults.standard
 
     init() {
@@ -79,6 +114,21 @@ final class SettingsStore: ObservableObject {
         avatarStyle = AvatarStyle(rawValue: defaults.string(forKey: Keys.avatarStyle) ?? "") ?? .orb
         bubblePlacement = BubblePlacement(rawValue: defaults.string(forKey: Keys.bubblePlacement) ?? "") ?? .above
         companionMovementMode = CompanionMovementMode(rawValue: defaults.string(forKey: Keys.companionMovementMode) ?? "") ?? .stationary
+        openAIModel = defaults.string(forKey: Keys.openAIModel) ?? AssistantProvider.openAI.defaultModel
+        anthropicModel = defaults.string(forKey: Keys.anthropicModel) ?? AssistantProvider.anthropic.defaultModel
+        geminiModel = defaults.string(forKey: Keys.geminiModel) ?? AssistantProvider.gemini.defaultModel
+        openRouterModel = defaults.string(forKey: Keys.openRouterModel) ?? AssistantProvider.openRouter.defaultModel
+        groqModel = defaults.string(forKey: Keys.groqModel) ?? AssistantProvider.groq.defaultModel
+        ollamaModel = defaults.string(forKey: Keys.ollamaModel) ?? AssistantProvider.ollama.defaultModel
+        lmStudioModel = defaults.string(forKey: Keys.lmStudioModel) ?? AssistantProvider.lmStudio.defaultModel
+
+        let storedKeyCode = defaults.object(forKey: Keys.hotKeyKeyCode) as? Int
+        let storedModifiers = defaults.object(forKey: Keys.hotKeyModifiers) as? Int
+        if let storedKeyCode, let storedModifiers {
+            hotKeyShortcut = HotKeyShortcut(keyCode: UInt32(storedKeyCode), modifiers: UInt32(storedModifiers))
+        } else {
+            hotKeyShortcut = .default
+        }
 
         if defaults.object(forKey: Keys.continuousConversationEnabled) == nil {
             continuousConversationEnabled = true
@@ -104,8 +154,49 @@ final class SettingsStore: ObservableObject {
             codexModel: codexModel,
             codexEffort: codexEffort,
             claudeModel: claudeModel,
-            claudeEffort: claudeEffort
+            claudeEffort: claudeEffort,
+            providerModels: [
+                .codex: codexModel.title,
+                .claude: claudeModel.title,
+                .cursor: AssistantProvider.cursor.defaultModel,
+                .opencode: AssistantProvider.opencode.defaultModel,
+                .antigravity: AssistantProvider.antigravity.defaultModel,
+                .appleIntelligence: AssistantProvider.appleIntelligence.defaultModel,
+                .ollama: ollamaModel,
+                .lmStudio: lmStudioModel,
+                .openAI: openAIModel,
+                .anthropic: anthropicModel,
+                .gemini: geminiModel,
+                .openRouter: openRouterModel,
+                .groq: groqModel
+            ]
         )
+    }
+
+    func resetToDefaults() {
+        provider = .auto
+        voiceLocale = .englishIndia
+        speechVoice = .warmSamantha
+        speechRate = 0.44
+        listenMode = .tapToTalk
+        continuousConversationEnabled = true
+        spokenRepliesEnabled = true
+        historyEnabled = true
+        codexModel = .configured
+        codexEffort = .xhigh
+        claudeModel = .sonnet
+        claudeEffort = .medium
+        avatarStyle = .orb
+        bubblePlacement = .above
+        companionMovementMode = .stationary
+        openAIModel = AssistantProvider.openAI.defaultModel
+        anthropicModel = AssistantProvider.anthropic.defaultModel
+        geminiModel = AssistantProvider.gemini.defaultModel
+        openRouterModel = AssistantProvider.openRouter.defaultModel
+        groqModel = AssistantProvider.groq.defaultModel
+        ollamaModel = AssistantProvider.ollama.defaultModel
+        lmStudioModel = AssistantProvider.lmStudio.defaultModel
+        hotKeyShortcut = .default
     }
 
     private enum Keys {
@@ -124,5 +215,14 @@ final class SettingsStore: ObservableObject {
         static let avatarStyle = "avatarStyle"
         static let bubblePlacement = "bubblePlacement"
         static let companionMovementMode = "companionMovementMode"
+        static let openAIModel = "openAIModel"
+        static let anthropicModel = "anthropicModel"
+        static let geminiModel = "geminiModel"
+        static let openRouterModel = "openRouterModel"
+        static let groqModel = "groqModel"
+        static let ollamaModel = "ollamaModel"
+        static let lmStudioModel = "lmStudioModel"
+        static let hotKeyKeyCode = "hotKeyKeyCode"
+        static let hotKeyModifiers = "hotKeyModifiers"
     }
 }

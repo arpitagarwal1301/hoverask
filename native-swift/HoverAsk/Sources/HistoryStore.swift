@@ -35,6 +35,43 @@ final class HistoryStore: ObservableObject {
         save()
     }
 
+    func exportMarkdown(to url: URL) throws {
+        let formatter = ISO8601DateFormatter()
+        let body = items.map { item in
+            """
+            ## \(formatter.string(from: item.createdAt)) · \(item.provider.title)
+
+            **You**
+
+            \(item.prompt)
+
+            **HoverAsk**
+
+            \(item.answer)
+            """
+        }.joined(separator: "\n\n---\n\n")
+
+        let markdown = """
+        # HoverAsk Chat History
+
+        Exported: \(formatter.string(from: Date()))
+        Saved chats: \(items.count)
+
+        ---
+
+        \(body)
+        """
+        try markdown.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    func exportJSON(to url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(items)
+        try data.write(to: url, options: [.atomic])
+    }
+
     private func load() {
         guard let data = try? Data(contentsOf: fileURL) else {
             items = []

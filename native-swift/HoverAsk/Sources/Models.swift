@@ -1,3 +1,4 @@
+import Carbon
 import Foundation
 
 enum ProviderSelection: String, CaseIterable, Codable, Identifiable {
@@ -7,6 +8,14 @@ enum ProviderSelection: String, CaseIterable, Codable, Identifiable {
     case cursor
     case opencode
     case antigravity
+    case appleIntelligence
+    case ollama
+    case lmStudio
+    case openAI
+    case anthropic
+    case gemini
+    case openRouter
+    case groq
 
     var id: String { rawValue }
 
@@ -18,6 +27,14 @@ enum ProviderSelection: String, CaseIterable, Codable, Identifiable {
         case .cursor: "Cursor"
         case .opencode: "OpenCode"
         case .antigravity: "Antigravity"
+        case .appleIntelligence: "Apple Intelligence"
+        case .ollama: "Ollama"
+        case .lmStudio: "LM Studio"
+        case .openAI: "OpenAI"
+        case .anthropic: "Anthropic"
+        case .gemini: "Gemini"
+        case .openRouter: "OpenRouter"
+        case .groq: "Groq"
         }
     }
 
@@ -35,6 +52,22 @@ enum ProviderSelection: String, CaseIterable, Codable, Identifiable {
             return .opencode
         case .antigravity:
             return .antigravity
+        case .appleIntelligence:
+            return .appleIntelligence
+        case .ollama:
+            return .ollama
+        case .lmStudio:
+            return .lmStudio
+        case .openAI:
+            return .openAI
+        case .anthropic:
+            return .anthropic
+        case .gemini:
+            return .gemini
+        case .openRouter:
+            return .openRouter
+        case .groq:
+            return .groq
         }
     }
 }
@@ -45,6 +78,14 @@ enum AssistantProvider: String, CaseIterable, Codable, Identifiable {
     case cursor
     case opencode
     case antigravity
+    case appleIntelligence
+    case ollama
+    case lmStudio
+    case openAI
+    case anthropic
+    case gemini
+    case openRouter
+    case groq
 
     var id: String { rawValue }
 
@@ -55,6 +96,87 @@ enum AssistantProvider: String, CaseIterable, Codable, Identifiable {
         case .cursor: "Cursor"
         case .opencode: "OpenCode"
         case .antigravity: "Antigravity"
+        case .appleIntelligence: "Apple Intelligence"
+        case .ollama: "Ollama"
+        case .lmStudio: "LM Studio"
+        case .openAI: "OpenAI"
+        case .anthropic: "Anthropic"
+        case .gemini: "Gemini"
+        case .openRouter: "OpenRouter"
+        case .groq: "Groq"
+        }
+    }
+
+    var category: ProviderCategory {
+        switch self {
+        case .codex, .claude, .cursor, .opencode, .antigravity:
+            return .cli
+        case .appleIntelligence, .ollama, .lmStudio:
+            return .local
+        case .openAI, .anthropic, .gemini, .openRouter, .groq:
+            return .byok
+        }
+    }
+
+    var selection: ProviderSelection {
+        switch self {
+        case .codex: .codex
+        case .claude: .claude
+        case .cursor: .cursor
+        case .opencode: .opencode
+        case .antigravity: .antigravity
+        case .appleIntelligence: .appleIntelligence
+        case .ollama: .ollama
+        case .lmStudio: .lmStudio
+        case .openAI: .openAI
+        case .anthropic: .anthropic
+        case .gemini: .gemini
+        case .openRouter: .openRouter
+        case .groq: .groq
+        }
+    }
+
+    var supportsEffort: Bool {
+        self == .codex || self == .claude
+    }
+
+    var supportsLogin: Bool {
+        category == .cli
+    }
+
+    var defaultModel: String {
+        switch self {
+        case .codex: "Codex default"
+        case .claude: "Sonnet"
+        case .cursor, .opencode, .antigravity: "CLI default"
+        case .appleIntelligence: "Apple Default"
+        case .ollama: "llama3.2"
+        case .lmStudio: "local-model"
+        case .openAI: "gpt-4.1-mini"
+        case .anthropic: "claude-sonnet-4-20250514"
+        case .gemini: "gemini-2.5-flash"
+        case .openRouter: "openai/gpt-4.1-mini"
+        case .groq: "llama-3.3-70b-versatile"
+        }
+    }
+
+    static let cliProviders: [AssistantProvider] = [.codex, .claude, .cursor, .opencode, .antigravity]
+    static let localProviders: [AssistantProvider] = [.appleIntelligence, .ollama, .lmStudio]
+    static let byokProviders: [AssistantProvider] = [.openAI, .anthropic, .gemini, .openRouter, .groq]
+}
+
+enum ProviderCategory: String, Codable, Identifiable {
+    case cli
+    case local
+    case byok
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .cli: "Account CLI"
+        case .local: "Private Local"
+        case .byok: "BYOK Cloud"
         }
     }
 }
@@ -242,6 +364,118 @@ enum CompanionMovementMode: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+enum SettingsSection: String, CaseIterable, Identifiable {
+    case overview
+    case assistant
+    case voice
+    case appearance
+    case providers
+    case chatHistory
+    case advanced
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .overview: "Overview"
+        case .assistant: "AI Assistant"
+        case .voice: "Voice"
+        case .appearance: "Avatar"
+        case .providers: "Providers"
+        case .chatHistory: "Chat History"
+        case .advanced: "Advanced"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .overview: "house"
+        case .assistant: "sparkles"
+        case .voice: "mic"
+        case .appearance: "paintbrush"
+        case .providers: "powerplug"
+        case .chatHistory: "clock.arrow.circlepath"
+        case .advanced: "slider.horizontal.3"
+        }
+    }
+}
+
+enum LocalProviderKind: String, CaseIterable, Identifiable {
+    case appleIntelligence
+    case ollama
+    case lmStudio
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .appleIntelligence: "Apple Intelligence"
+        case .ollama: "Ollama"
+        case .lmStudio: "LM Studio"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .appleIntelligence: "On-device"
+        case .ollama: "localhost:11434"
+        case .lmStudio: "localhost:1234"
+        }
+    }
+}
+
+enum LocalProviderStatus: Equatable {
+    case available(String)
+    case unavailable(String)
+    case notRunning(String)
+    case running(String)
+
+    var title: String {
+        switch self {
+        case .available(let text), .unavailable(let text), .notRunning(let text), .running(let text):
+            text
+        }
+    }
+
+    var isPositive: Bool {
+        switch self {
+        case .available, .running:
+            return true
+        case .unavailable, .notRunning:
+            return false
+        }
+    }
+}
+
+struct LocalProviderHealth: Identifiable, Equatable {
+    let kind: LocalProviderKind
+    let status: LocalProviderStatus
+    let model: String
+
+    var id: LocalProviderKind { kind }
+}
+
+enum AppleIntelligenceAvailability: Equatable {
+    case available(String)
+    case unavailable(String)
+
+    var title: String {
+        switch self {
+        case .available(let text), .unavailable(let text):
+            text
+        }
+    }
+
+    var isAvailable: Bool {
+        switch self {
+        case .available:
+            return true
+        case .unavailable:
+            return false
+        }
+    }
+}
+
 struct CompanionVisualMotion: Equatable {
     let isRunning: Bool
     let facingRight: Bool
@@ -270,6 +504,12 @@ struct ProviderRuntimeOptions {
     let codexEffort: CodexReasoningEffort
     let claudeModel: ClaudeModel
     let claudeEffort: ClaudeReasoningEffort
+    let providerModels: [AssistantProvider: String]
+
+    func model(for provider: AssistantProvider) -> String {
+        let model = providerModels[provider]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return model.isEmpty ? provider.defaultModel : model
+    }
 }
 
 enum OrbPhase: Equatable {
@@ -317,4 +557,38 @@ struct AssistantResult {
     let provider: AssistantProvider
     let text: String
     let duration: TimeInterval
+}
+
+struct ProviderTestResult: Equatable {
+    let provider: AssistantProvider
+    let success: Bool
+    let message: String
+    let duration: TimeInterval?
+}
+
+struct HotKeyShortcut: Codable, Equatable {
+    var keyCode: UInt32
+    var modifiers: UInt32
+
+    static let `default` = HotKeyShortcut(keyCode: 49, modifiers: UInt32(cmdKey | shiftKey))
+
+    var displayText: String {
+        var parts: [String] = []
+        if modifiers & UInt32(cmdKey) != 0 { parts.append("Cmd") }
+        if modifiers & UInt32(shiftKey) != 0 { parts.append("Shift") }
+        if modifiers & UInt32(optionKey) != 0 { parts.append("Option") }
+        if modifiers & UInt32(controlKey) != 0 { parts.append("Control") }
+        parts.append(Self.keyName(for: keyCode))
+        return parts.joined(separator: " + ")
+    }
+
+    static func keyName(for keyCode: UInt32) -> String {
+        switch keyCode {
+        case 49: "Space"
+        case 36: "Return"
+        case 53: "Esc"
+        case 48: "Tab"
+        default: "Key \(keyCode)"
+        }
+    }
 }
