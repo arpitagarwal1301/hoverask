@@ -1,30 +1,29 @@
-# HoverAsk v1.1.0
+# HoverAsk v1.2.0
 
 ![HoverAsk preview](https://raw.githubusercontent.com/arpitagarwal1301/hoverask/main/docs/assets/hoverask-v1-final-preview.png)
 
-HoverAsk v1.1.0 expands the provider layer and cleans up Settings so the app is easier to run with CLI accounts, private local models, or BYOK cloud providers.
+HoverAsk v1.2.0 focuses on the Providers experience: clearer routing, cleaner provider states, current model defaults, and a more polished settings surface for CLI, local, and BYOK sources.
 
 The app remains local-first by default: no screenshots are captured, local history is optional, and BYOK API keys are stored only in macOS Keychain.
 
 ## Download
 
-- [Download the macOS DMG](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.1.0/HoverAsk-v1.1.0-macos.dmg)
+- [Download the macOS DMG](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.dmg)
 
 ## Highlights
 
-- Added CLI provider support for Cursor, OpenCode, and Antigravity alongside Codex and Claude.
-- Added BYOK providers for OpenAI, Anthropic, Gemini, OpenRouter, and Groq with Keychain storage.
-- Added private local provider detection/testing for Apple Intelligence, Ollama, and LM Studio.
-- `Auto` now falls back through account CLIs, private local providers, then BYOK cloud providers.
-- Providers now include model selection, effort controls where supported, and per-provider test actions.
-- Settings has clearer sections: AI Assistant, Voice, Avatar, Providers, Chat History, and Advanced.
-- Chat History now supports Markdown and JSON export.
-- Advanced now focuses on editable wake hotkey and reset settings.
-- Privacy and Terms docs are linked from the app and repository.
+- Added a clearer selected-route inspector for Auto fallback routing.
+- Added draggable route chips, visible edit handles, and add/remove fallback controls.
+- Simplified provider bucket toggles to `Show all` and `Show top`.
+- Made provider overflow menus state-aware so unavailable providers avoid irrelevant disconnect actions.
+- Changed provider success/status messages to auto-clear while keeping real errors visible.
+- Aligned Apple Intelligence with other Local provider rows.
+- Reused one consistent `Privacy by design` banner on Overview and Providers.
+- Refreshed built-in model defaults and fallback suggestions for OpenAI, Anthropic, Gemini, OpenRouter, Groq, Ollama, and LM Studio.
 
 ## Build Artifact
 
-- `HoverAsk-v1.1.0-macos.dmg`
+- `HoverAsk-v1.2.0-macos.dmg`
 
 ## Requirements
 

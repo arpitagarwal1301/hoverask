@@ -224,7 +224,7 @@ struct OverviewSettingsPage: View {
                 }
             }
 
-            privacyStrip
+            PrivacyByDesignStrip()
         }
     }
 
@@ -237,30 +237,6 @@ struct OverviewSettingsPage: View {
         .padding(.trailing, 24)
         .padding(.top, 4)
         .shadow(color: .cyan.opacity(0.18), radius: 22, x: 0, y: 12)
-    }
-
-    private var privacyStrip: some View {
-        HStack(spacing: 12) {
-            SettingsGlyph(systemName: "shield.checkerboard", tone: .info)
-            Text("Privacy by design")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(.cyan.opacity(0.92))
-            Text("·")
-                .foregroundStyle(.white.opacity(0.28))
-            Text("No screenshots")
-            Text("·")
-                .foregroundStyle(.white.opacity(0.28))
-            Text("Keys will use Keychain")
-            Text("·")
-                .foregroundStyle(.white.opacity(0.28))
-            Text("Apple Intelligence/local providers stay on this Mac")
-        }
-        .font(.system(size: 13, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.76))
-        .padding(14)
-        .background(.cyan.opacity(0.075), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(.cyan.opacity(0.24), lineWidth: 1))
-        .shadow(color: .cyan.opacity(0.10), radius: 14, x: 0, y: 8)
     }
 
     private var readyCliCount: Int {
@@ -626,7 +602,7 @@ struct ProviderSettingsPage: View {
                 .padding(.vertical, 24)
             }
             routeInspector
-                .frame(width: 300)
+                .frame(width: 326)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -743,7 +719,6 @@ struct ProviderSettingsPage: View {
         let orderedProviders = orderedProvidersForBucket(providers)
         let isExpanded = expandedProviderBuckets.contains(group)
         let visibleProviders = isExpanded ? orderedProviders : Array(orderedProviders.prefix(3))
-        let hiddenCount = max(orderedProviders.count - visibleProviders.count, 0)
         let readyCount = providers.filter { readiness(for: $0).isReady }.count
         let setupCount = providers.count - readyCount
         return SettingsGroup(title: nil) {
@@ -773,7 +748,7 @@ struct ProviderSettingsPage: View {
                         }
                     } label: {
                         HStack(spacing: 5) {
-                            Text(isExpanded ? "Show top 3" : "Show all (\(hiddenCount))")
+                            Text(isExpanded ? "Show top" : "Show all")
                             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                                 .font(.system(size: 10, weight: .bold))
                         }
@@ -838,12 +813,12 @@ struct ProviderSettingsPage: View {
                         .foregroundStyle(.white.opacity(0.48))
                         .lineLimit(1)
                 }
-                .frame(width: provider == .appleIntelligence ? 150 : 118, alignment: .leading)
+                .frame(width: providerNameColumnWidth(for: provider), alignment: .leading)
                 Spacer()
                 statusChip(readiness)
                     .frame(width: 92, alignment: .leading)
                 providerModelControls(provider)
-                    .frame(width: provider == .appleIntelligence ? 158 : (provider.category == .cli ? 188 : 230), alignment: .leading)
+                    .frame(width: providerModelColumnWidth(for: provider), alignment: .leading)
                 primaryProviderAction(provider)
                     .frame(width: 72)
                 providerOverflowMenu(provider)
@@ -851,12 +826,12 @@ struct ProviderSettingsPage: View {
 
             if let result = viewModel.providerTestResults[provider] {
                 HStack(spacing: 8) {
-                    Image(systemName: result.success ? "checkmark.circle" : "exclamationmark.triangle")
+                    Image(systemName: providerResultIcon(result))
                     Text(result.message)
                         .lineLimit(2)
                 }
                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(result.success ? SettingsStatusTone.success.color : SettingsStatusTone.warning.color)
+                .foregroundStyle(providerResultTone(result).color)
                 .padding(.leading, 48)
             }
         }
@@ -885,6 +860,28 @@ struct ProviderSettingsPage: View {
             .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(tone(for: readiness).color.opacity(0.22), lineWidth: 1))
     }
 
+    private func providerNameColumnWidth(for provider: AssistantProvider) -> CGFloat {
+        switch provider.category {
+        case .cli:
+            return 118
+        case .local:
+            return 150
+        case .byok:
+            return 118
+        }
+    }
+
+    private func providerModelColumnWidth(for provider: AssistantProvider) -> CGFloat {
+        switch provider.category {
+        case .cli:
+            return 188
+        case .local:
+            return 230
+        case .byok:
+            return 230
+        }
+    }
+
     @ViewBuilder
     private func primaryProviderAction(_ provider: AssistantProvider) -> some View {
         let readiness = readiness(for: provider)
@@ -907,24 +904,33 @@ struct ProviderSettingsPage: View {
     }
 
     private func providerOverflowMenu(_ provider: AssistantProvider) -> some View {
-        Menu {
-            Button("Test") { viewModel.testProvider(provider) }
-                .disabled(!readiness(for: provider).isReady)
-            Button("Fetch models") { viewModel.fetchModels(for: provider) }
-                .disabled(provider.category == .cli && provider != .codex && provider != .claude)
+        let readiness = readiness(for: provider)
+        let isDisabled = settings.disabledProviders.contains(provider)
+        return Menu {
+            if readiness.isReady {
+                Button("Test") { viewModel.testProvider(provider) }
+            }
+            if canFetchModels(for: provider) {
+                Button("Fetch models") { viewModel.fetchModels(for: provider) }
+            }
             if provider.category == .cli {
-                Button("Re-login") { viewModel.login(provider: provider) }
+                if readiness != .missing {
+                    Button(readiness == .needsLogin ? "Login" : "Re-login") { viewModel.login(provider: provider) }
+                }
             }
             if provider.category == .byok {
-                Button("Connect / Replace key") { promptForAPIKey(provider) }
-                Button("Delete key") { confirmDeleteKey(provider) }
-                    .disabled(!BYOKKeychain.hasKey(for: provider))
+                Button(BYOKKeychain.hasKey(for: provider) ? "Replace key" : "Connect key") { promptForAPIKey(provider) }
+                if BYOKKeychain.hasKey(for: provider) {
+                    Button("Delete key") { confirmDeleteKey(provider) }
+                }
             }
-            Divider()
-            if settings.disabledProviders.contains(provider) {
+            if isDisabled || readiness.isReady {
+                Divider()
+            }
+            if isDisabled {
                 Button("Enable in HoverAsk") { viewModel.reconnectProvider(provider) }
-            } else {
-                Button("Disconnect from HoverAsk") { viewModel.disconnectProvider(provider) }
+            } else if readiness.isReady {
+                Button("Remove from Auto route") { viewModel.disconnectProvider(provider) }
             }
             Divider()
             Button("Provider info") { openDocs(provider) }
@@ -940,13 +946,40 @@ struct ProviderSettingsPage: View {
         .frame(width: 32)
     }
 
+    private func canFetchModels(for provider: AssistantProvider) -> Bool {
+        switch provider {
+        case .codex, .claude:
+            return true
+        case .cursor, .opencode, .antigravity, .appleIntelligence:
+            return false
+        case .ollama, .lmStudio:
+            return true
+        case .openAI, .anthropic, .gemini, .openRouter, .groq:
+            return BYOKKeychain.hasKey(for: provider)
+        }
+    }
+
+    private func providerResultIcon(_ result: ProviderTestResult) -> String {
+        if result.message == "Testing..." || result.message == "Fetching models..." {
+            return "hourglass"
+        }
+        return result.success ? "checkmark.circle" : "exclamationmark.triangle"
+    }
+
+    private func providerResultTone(_ result: ProviderTestResult) -> SettingsStatusTone {
+        if result.message == "Testing..." || result.message == "Fetching models..." {
+            return .info
+        }
+        return result.success ? .success : .warning
+    }
+
     @ViewBuilder
     private func providerModelControls(_ provider: AssistantProvider) -> some View {
         let choices = modelChoices(for: provider)
         HStack(spacing: 8) {
             if provider == .appleIntelligence {
                 SettingsPill("Apple Default", systemName: nil)
-                    .frame(width: 128, alignment: .leading)
+                    .frame(width: 150, alignment: .leading)
             } else if choices.isEmpty {
                 SettingsPill(settings.providerModelChoice(for: provider).modelID, systemName: nil)
                     .frame(width: 150, alignment: .leading)
@@ -957,7 +990,7 @@ struct ProviderSettingsPage: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 150)
+                    .frame(width: 150)
             }
             if provider.category != .cli && provider != .appleIntelligence {
                 TextField(provider.defaultModel, text: modelIDBinding(for: provider))
@@ -973,26 +1006,56 @@ struct ProviderSettingsPage: View {
     }
 
     private var routeInspector: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Text(isEditingRouteOrder ? "Fallback route" : "Selected route")
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.012, green: 0.052, blue: 0.060).opacity(0.98),
+                    Color(red: 0.004, green: 0.020, blue: 0.024).opacity(0.98)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            VStack(alignment: .leading, spacing: 12) {
+                routeInspectorHeader
+                routeCard
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 38)
+        }
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(.white.opacity(0.075))
+                .frame(width: 1)
+        }
+    }
+
+    private var routeInspectorHeader: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 7) {
+                    Text("Selected route")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.93))
                     routeInfoButton
                 }
-                Text(isEditingRouteOrder ? "Drag sources into Auto fallback." : "HoverAsk will try each source in this order.")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.58))
+                Text("HoverAsk tries ready sources in this order.")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.52))
             }
-            SettingsDivider()
-            HStack {
-                Text("Fallback order")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                Spacer()
-                routeEditToggle
-            }
+            Spacer()
+            routeEditToggle
+        }
+        .padding(.horizontal, 2)
+    }
+
+    private var routeCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Fallback order")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.88))
             ScrollView(showsIndicators: isEditingRouteOrder) {
-                VStack(alignment: .leading, spacing: isEditingRouteOrder ? 9 : 13) {
+                VStack(alignment: .leading, spacing: isEditingRouteOrder ? 8 : 10) {
                     ForEach(Array(routeOrderForDisplay.enumerated()), id: \.element) { index, provider in
                         if isEditingRouteOrder {
                             routeEditChip(index: index + 1, provider: provider)
@@ -1002,8 +1065,8 @@ struct ProviderSettingsPage: View {
                     }
                 }
             }
-            .frame(maxHeight: isEditingRouteOrder ? 286 : 310)
-            HStack(spacing: 6) {
+            .frame(maxHeight: isEditingRouteOrder ? 320 : 410)
+            HStack(spacing: 8) {
                 routeActionButton("Test", systemName: "waveform", help: "Test route") {
                     if let firstReady = settings.normalizedRouteOrder.first(where: { readiness(for: $0).isReady }) {
                         viewModel.testProvider(firstReady)
@@ -1019,43 +1082,67 @@ struct ProviderSettingsPage: View {
             if isEditingRouteOrder {
                 routeAddTarget
             }
-            if isEditingRouteOrder && activeRouteDragProvider != nil {
-                routeRemoveDropZone
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-            Spacer()
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 24)
-        .background(.black.opacity(0.11))
+        .padding(16)
+        .background(routeCardBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            .cyan.opacity(0.86),
+                            .cyan.opacity(0.32),
+                            .cyan.opacity(0.62)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.25
+                )
+        )
+        .shadow(color: .cyan.opacity(0.17), radius: 24, x: 0, y: 8)
+    }
+
+    private var routeCardBackground: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.030, green: 0.133, blue: 0.145).opacity(0.82),
+                        Color(red: 0.010, green: 0.044, blue: 0.050).opacity(0.985)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
     }
 
     private var routeInfoButton: some View {
         Button {
             isRouteInfoPresented.toggle()
         } label: {
-            Image(systemName: "info.circle")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.cyan.opacity(0.92))
-                .frame(width: 20, height: 20)
-                .background(.cyan.opacity(0.08), in: Circle())
-                .overlay(Circle().stroke(.cyan.opacity(0.24), lineWidth: 1))
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.cyan.opacity(0.94))
+                .frame(width: 22, height: 22)
+                .background(.cyan.opacity(0.12), in: Circle())
+                .overlay(Circle().stroke(.cyan.opacity(0.34), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .help("About fallback routing")
         .popover(isPresented: $isRouteInfoPresented, arrowEdge: .top) {
             VStack(alignment: .leading, spacing: 8) {
-                Label("About routing", systemImage: "point.3.connected.trianglepath.dotted")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.92))
-                Text("Auto skips disabled, missing, unkeyed, and model-missing sources, then tries the fallback route from top to bottom.")
+                Text("Routing uses the first ready provider in this order.")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.70))
+                    .foregroundStyle(.white.opacity(0.78))
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(14)
-            .frame(width: 260, alignment: .leading)
-            .background(Color(red: 0.03, green: 0.09, blue: 0.10).opacity(0.96))
+            .padding(12)
+            .frame(width: 190, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color(red: 0.07, green: 0.10, blue: 0.10).opacity(0.98))
+            )
         }
     }
 
@@ -1073,14 +1160,21 @@ struct ProviderSettingsPage: View {
                 Text(isEditingRouteOrder ? "Done" : "Edit route")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
             }
-            .foregroundStyle(isEditingRouteOrder ? Color.black.opacity(0.84) : Color.cyan.opacity(0.92))
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
+            .foregroundStyle(.white.opacity(0.92))
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
             .background(
-                isEditingRouteOrder ? Color.cyan.opacity(0.82) : Color.cyan.opacity(0.09),
+                LinearGradient(
+                    colors: isEditingRouteOrder
+                        ? [Color.cyan.opacity(0.58), Color.cyan.opacity(0.31)]
+                        : [Color.cyan.opacity(0.18), Color.cyan.opacity(0.08)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
                 in: Capsule()
             )
-            .overlay(Capsule().stroke(Color.cyan.opacity(isEditingRouteOrder ? 0.16 : 0.26), lineWidth: 1))
+            .overlay(Capsule().stroke(Color.cyan.opacity(isEditingRouteOrder ? 0.56 : 0.34), lineWidth: 1))
+            .shadow(color: .cyan.opacity(isEditingRouteOrder ? 0.18 : 0.05), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .help(isEditingRouteOrder ? "Done editing route" : "Edit fallback route")
@@ -1099,8 +1193,8 @@ struct ProviderSettingsPage: View {
             .foregroundStyle(.white.opacity(0.86))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .background(.white.opacity(0.060), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
+            .background(.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(.white.opacity(0.13), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .help(help)
@@ -1111,76 +1205,11 @@ struct ProviderSettingsPage: View {
     }
 
     private func routeStep(index: Int, provider: AssistantProvider) -> some View {
-        HStack(spacing: 10) {
-            Text("\(index)")
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(.cyan.opacity(0.92))
-                .frame(width: 28, height: 28)
-                .background(.cyan.opacity(0.08), in: Circle())
-                .overlay(Circle().stroke(.cyan.opacity(0.55), lineWidth: 1))
-            Image(systemName: providerIcon(provider))
-                .frame(width: 22)
-                .foregroundStyle(.white.opacity(settings.disabledProviders.contains(provider) ? 0.34 : 0.76))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(provider.title)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(settings.disabledProviders.contains(provider) ? 0.42 : 0.88))
-                Text(statusTitle(for: readiness(for: provider)))
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(tone(for: readiness(for: provider)).color)
-            }
-            Spacer()
-        }
+        routeChip(index: index, provider: provider, isEditable: false)
     }
 
     private func routeEditChip(index: Int, provider: AssistantProvider) -> some View {
-        HStack(spacing: 9) {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.cyan.opacity(0.76))
-                .frame(width: 14)
-            Text("\(index)")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(.cyan.opacity(0.92))
-                .frame(width: 22, height: 22)
-                .background(.cyan.opacity(0.08), in: Circle())
-                .overlay(Circle().stroke(.cyan.opacity(0.48), lineWidth: 1))
-            Image(systemName: providerIcon(provider))
-                .font(.system(size: 12, weight: .semibold))
-                .frame(width: 18)
-                .foregroundStyle(.white.opacity(0.76))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(provider.title)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .lineLimit(1)
-                Text(shortModel(settings.providerModelChoice(for: provider).modelID))
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.48))
-                    .lineLimit(1)
-            }
-            Spacer()
-            Circle()
-                .fill(tone(for: readiness(for: provider)).color)
-                .frame(width: 7, height: 7)
-            Button {
-                removeProviderFromRoute(provider)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white.opacity(settings.normalizedRouteOrder.count <= 1 ? 0.26 : 0.72))
-                    .frame(width: 20, height: 20)
-                    .background(.white.opacity(0.060), in: Circle())
-                    .overlay(Circle().stroke(.white.opacity(0.11), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .disabled(settings.normalizedRouteOrder.count <= 1)
-            .help("Remove from route")
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
-        .contentShape(Rectangle())
+        routeChip(index: index, provider: provider, isEditable: true)
         .onDrag {
             activeDraggedProvider = provider
             activeRouteDragProvider = provider
@@ -1191,49 +1220,134 @@ struct ProviderSettingsPage: View {
         }
     }
 
-    private var routeAddTarget: some View {
-        ZStack {
-            HStack(spacing: 9) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.cyan.opacity(0.9))
-                    .frame(width: 22, height: 22)
-                    .background(.cyan.opacity(0.08), in: Circle())
-                    .overlay(Circle().stroke(.cyan.opacity(0.36), lineWidth: 1))
-                Text("+ Add provider to fallback")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.78))
-                Spacer()
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.cyan.opacity(0.70))
+    private func routeChip(index: Int, provider: AssistantProvider, isEditable: Bool) -> some View {
+        HStack(spacing: 10) {
+            if isEditable {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.cyan.opacity(0.78))
+                    .frame(width: 12)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .background(.cyan.opacity(0.070), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.cyan.opacity(0.36), style: StrokeStyle(lineWidth: 1, dash: [6, 4])))
+            Text("\(index)")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.cyan.opacity(0.92))
+                .frame(width: 31, height: 31)
+                .background(.cyan.opacity(0.06), in: Circle())
+                .overlay(Circle().stroke(.cyan.opacity(0.84), lineWidth: 1.2))
+            HStack(spacing: 10) {
+                Image(systemName: providerIcon(provider))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white.opacity(settings.disabledProviders.contains(provider) ? 0.36 : 0.84))
+                    .frame(width: 30, height: 30)
+                    .background(.white.opacity(0.080), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(.white.opacity(0.13), lineWidth: 1))
+                Circle()
+                    .fill(tone(for: readiness(for: provider)).color)
+                    .frame(width: 9, height: 9)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(provider.title)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(settings.disabledProviders.contains(provider) ? 0.44 : 0.92))
+                        .lineLimit(1)
+                    Text(routeSubtitle(for: provider))
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.50))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                if isEditable {
+                    Button {
+                        removeProviderFromRoute(provider)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white.opacity(settings.normalizedRouteOrder.count <= 1 ? 0.28 : 0.76))
+                            .frame(width: 25, height: 25)
+                            .background(.white.opacity(0.060), in: Circle())
+                            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(settings.normalizedRouteOrder.count <= 1)
+                    .help("Remove from route")
+                }
+            }
+            .padding(.leading, 10)
+            .padding(.trailing, isEditable ? 8 : 11)
+            .padding(.vertical, 9)
+            .background(
+                LinearGradient(
+                    colors: [
+                        .white.opacity(0.090),
+                        Color(red: 0.026, green: 0.101, blue: 0.108).opacity(0.95)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.17), lineWidth: 1))
+            .shadow(color: .black.opacity(0.16), radius: 5, x: 0, y: 2)
+        }
+        .contentShape(Rectangle())
+    }
 
-            Menu {
-                let missing = providersNotInRoute
-                if missing.isEmpty {
-                    Button("All sources are already in route") {}
-                        .disabled(true)
-                } else {
-                    ForEach(missing) { provider in
-                        Button("Add \(provider.title)") {
-                            addProviderToRoute(provider, before: nil)
+    private func routeSubtitle(for provider: AssistantProvider) -> String {
+        if provider == .appleIntelligence {
+            return "On-device"
+        }
+        return shortModel(settings.providerModelChoice(for: provider).modelID)
+    }
+
+    private var routeAddTarget: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.cyan.opacity(0.94))
+                        .frame(width: 28, height: 28)
+                        .background(.cyan.opacity(0.10), in: Circle())
+                        .overlay(Circle().stroke(.cyan.opacity(0.72), lineWidth: 1.1))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Add provider to fallback")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.cyan.opacity(0.94))
+                        Text("Drag from CLI, Local, or BYOK")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.58))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.cyan.opacity(0.70))
+                }
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, minHeight: 60)
+                .background(.cyan.opacity(0.065), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.cyan.opacity(0.78), style: StrokeStyle(lineWidth: 1.35, dash: [6, 4])))
+
+                Menu {
+                    let missing = providersNotInRoute
+                    if missing.isEmpty {
+                        Button("All sources are already in route") {}
+                            .disabled(true)
+                    } else {
+                        ForEach(missing) { provider in
+                            Button("Add \(provider.title)") {
+                                addProviderToRoute(provider, before: nil)
+                            }
                         }
                     }
+                } label: {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.001))
+                        .frame(maxWidth: .infinity, minHeight: 60)
+                        .contentShape(Rectangle())
                 }
-            } label: {
-                Rectangle()
-                    .fill(Color.white.opacity(0.001))
-                    .frame(maxWidth: .infinity, minHeight: 54)
-                    .contentShape(Rectangle())
+                .menuStyle(.borderlessButton)
+                .opacity(0.02)
             }
-            .menuStyle(.borderlessButton)
-            .opacity(0.02)
+            routeRemoveDropZone
         }
         .onDrop(of: [.plainText], isTargeted: nil) { providers in
             handleProviderDrop(providers, before: nil)
@@ -1242,17 +1356,17 @@ struct ProviderSettingsPage: View {
 
     private var routeRemoveDropZone: some View {
         HStack(spacing: 10) {
-            Image(systemName: "minus.circle")
+            Image(systemName: "trash")
                 .font(.system(size: 14, weight: .bold))
-            Text("Drag here to remove")
+            Text("Drag route chip here to remove")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
             Spacer()
         }
         .foregroundStyle(.orange.opacity(0.86))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
-        .background(.orange.opacity(0.075), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.orange.opacity(0.30), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, minHeight: 60)
+        .background(.orange.opacity(0.070), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.orange.opacity(0.70), style: StrokeStyle(lineWidth: 1.2, dash: [6, 4])))
         .onDrop(of: [.plainText], isTargeted: nil) { providers in
             handleRemoveDrop(providers)
         }
@@ -1428,6 +1542,7 @@ struct ProviderSettingsPage: View {
         for provider in AssistantProvider.allCases {
             settings.setProviderModelID(provider.defaultModel, for: provider)
         }
+        viewModel.clearProviderResults()
     }
 
     private func promptForAPIKey(_ provider: AssistantProvider) {
@@ -1526,15 +1641,19 @@ struct ProviderSettingsPage: View {
     private func curatedFallbackModels(for provider: AssistantProvider) -> [String] {
         switch provider {
         case .openAI:
-            return ["gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini", "o4-mini"]
+            return ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"]
         case .anthropic:
-            return ["claude-sonnet-4-20250514", "claude-3-7-sonnet-latest", "claude-3-5-haiku-latest"]
+            return ["claude-sonnet-4.6", "claude-opus-4.8", "claude-haiku-4.5", "claude-fable-5"]
         case .gemini:
-            return ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash"]
+            return ["gemini-3.5-flash", "gemini-3.1-pro", "gemini-3.1-flash-lite", "gemini-2.5-pro", "gemini-2.5-flash"]
         case .openRouter:
-            return ["openai/gpt-4.1-mini", "anthropic/claude-sonnet-4", "google/gemini-2.5-flash"]
+            return ["openai/gpt-5.5", "openai/gpt-5.5-pro", "anthropic/claude-opus-4.8", "anthropic/claude-sonnet-4.6", "google/gemini-3.5-flash", "qwen/qwen3.7-max", "x-ai/grok-4.3"]
         case .groq:
-            return ["llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3-32b"]
+            return ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "moonshotai/kimi-k2-instruct-0905", "qwen/qwen3-32b", "llama-3.3-70b-versatile"]
+        case .ollama:
+            return ["qwen3:14b", "gpt-oss:20b", "llama3.3:70b", "gemma3:12b"]
+        case .lmStudio:
+            return ["local-model", "qwen3-14b", "gpt-oss-20b", "llama-3.3-70b-instruct"]
         default:
             return []
         }
@@ -1545,27 +1664,7 @@ struct ProviderSettingsPage: View {
     }
 
     private var providerPrivacyFooter: some View {
-        HStack(spacing: 10) {
-            SettingsGlyph(systemName: "shield.checkerboard", tone: .info)
-            Text("No screenshots")
-            Text("·")
-                .foregroundStyle(.white.opacity(0.28))
-            Text("Keys use Keychain")
-            Text("·")
-                .foregroundStyle(.white.opacity(0.28))
-            Text("Local providers stay on this Mac")
-            Spacer()
-            SettingsActionButton("Privacy by design", systemName: "lock") {
-                if let url = LegalConfig.privacyURL {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-        }
-        .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.70))
-        .padding(12)
-        .background(.white.opacity(0.040), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(.white.opacity(0.09), lineWidth: 1))
+        PrivacyByDesignStrip()
     }
 
     private func openDocs(_ provider: AssistantProvider) {
@@ -2380,6 +2479,34 @@ struct SettingsGlyph: View {
     }
 }
 
+struct PrivacyByDesignStrip: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            SettingsGlyph(systemName: "shield.checkerboard", tone: .info)
+            Text("Privacy by design")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.cyan.opacity(0.92))
+            Text("·")
+                .foregroundStyle(.white.opacity(0.28))
+            Text("No screenshots")
+            Text("·")
+                .foregroundStyle(.white.opacity(0.28))
+            Text("Keys use Keychain")
+            Text("·")
+                .foregroundStyle(.white.opacity(0.28))
+            Text("Apple Intelligence/local providers stay on this Mac")
+                .lineLimit(1)
+                .minimumScaleFactor(0.86)
+        }
+        .font(.system(size: 13, weight: .medium, design: .rounded))
+        .foregroundStyle(.white.opacity(0.76))
+        .padding(14)
+        .background(.cyan.opacity(0.075), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(.cyan.opacity(0.24), lineWidth: 1))
+        .shadow(color: .cyan.opacity(0.10), radius: 14, x: 0, y: 8)
+    }
+}
+
 struct SettingsDivider: View {
     var body: some View {
         Rectangle()
@@ -2445,7 +2572,7 @@ enum SettingsStatusTone {
 }
 
 private var appVersion: String {
-    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0"
+    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.0"
     return "v\(version)"
 }
 

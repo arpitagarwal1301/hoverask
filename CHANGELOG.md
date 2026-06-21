@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.2.0 - 2026-06-21
+
+- Polished the Providers settings page with a clearer selected-route inspector and fallback route editor.
+- Added drag handles, route add/remove controls, and simpler `Show all` / `Show top` provider bucket toggles.
+- Made provider row state handling less noisy: transient success messages now auto-clear and unavailable providers avoid irrelevant disconnect actions.
+- Aligned Apple Intelligence with other Local provider rows and reused the same privacy banner on Overview and Providers.
+- Refreshed built-in model defaults and fallback suggestions for OpenAI, Anthropic, Gemini, OpenRouter, Groq, Ollama, and LM Studio.
+- Rebuilt and packaged the v1.2.0 macOS DMG.
+
 ## v1.1.0 - 2026-06-21
 
 - Added account-backed CLI provider support for Cursor, OpenCode, and Antigravity alongside Codex and Claude.

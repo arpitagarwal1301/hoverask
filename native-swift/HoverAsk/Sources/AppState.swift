@@ -297,7 +297,7 @@ final class OrbViewModel: ObservableObject {
         do {
             try BYOKKeychain.save(key, for: provider)
             settings.setProviderDisabled(false, provider: provider)
-            providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "Key saved in macOS Keychain.", duration: nil)
+            setTransientProviderResult(provider: provider, success: true, message: "Key saved in macOS Keychain.", clearAfter: 3)
             refreshHealth()
             fetchModels(for: provider)
         } catch {
@@ -309,7 +309,7 @@ final class OrbViewModel: ObservableObject {
         do {
             try BYOKKeychain.delete(for: provider)
             providerModelOptions[provider] = []
-            providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "Key removed from Keychain.", duration: nil)
+            setTransientProviderResult(provider: provider, success: true, message: "Key removed from Keychain.", clearAfter: 3)
             refreshHealth()
         } catch {
             providerTestResults[provider] = ProviderTestResult(provider: provider, success: false, message: error.localizedDescription, duration: nil)
@@ -318,13 +318,13 @@ final class OrbViewModel: ObservableObject {
 
     func disconnectProvider(_ provider: AssistantProvider) {
         settings.setProviderDisabled(true, provider: provider)
-        providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "\(provider.title) disconnected from HoverAsk routing.", duration: nil)
+        setTransientProviderResult(provider: provider, success: true, message: "\(provider.title) removed from Auto route.", clearAfter: 1.6)
         refreshHealth()
     }
 
     func reconnectProvider(_ provider: AssistantProvider) {
         settings.setProviderDisabled(false, provider: provider)
-        providerTestResults[provider] = ProviderTestResult(provider: provider, success: true, message: "\(provider.title) enabled for HoverAsk routing.", duration: nil)
+        setTransientProviderResult(provider: provider, success: true, message: "\(provider.title) enabled for Auto route.", clearAfter: 1.6)
         refreshHealth()
     }
 
@@ -338,6 +338,7 @@ final class OrbViewModel: ObservableObject {
     }
 
     func fetchModels(for provider: AssistantProvider) {
+        providerTestResults[provider] = ProviderTestResult(provider: provider, success: false, message: "Fetching models...", duration: nil)
         Task {
             do {
                 let models = try await engine.fetchModels(provider: provider)
@@ -345,8 +346,24 @@ final class OrbViewModel: ObservableObject {
                 if let first = models.first {
                     applyFetchedModel(first, for: provider)
                 }
+                setTransientProviderResult(provider: provider, success: true, message: "Models updated.", clearAfter: 2.5)
             } catch {
                 providerTestResults[provider] = ProviderTestResult(provider: provider, success: false, message: error.localizedDescription, duration: nil)
+            }
+        }
+    }
+
+    func clearProviderResults() {
+        providerTestResults = [:]
+    }
+
+    private func setTransientProviderResult(provider: AssistantProvider, success: Bool, message: String, clearAfter delay: TimeInterval) {
+        let result = ProviderTestResult(provider: provider, success: success, message: message, duration: nil)
+        providerTestResults[provider] = result
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            if providerTestResults[provider] == result {
+                providerTestResults[provider] = nil
             }
         }
     }

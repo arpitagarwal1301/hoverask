@@ -150,13 +150,13 @@ enum AssistantProvider: String, CaseIterable, Codable, Identifiable {
         case .claude: "Sonnet"
         case .cursor, .opencode, .antigravity: "CLI default"
         case .appleIntelligence: "Apple Default"
-        case .ollama: "llama3.2"
+        case .ollama: "qwen3:14b"
         case .lmStudio: "local-model"
-        case .openAI: "gpt-4.1-mini"
-        case .anthropic: "claude-sonnet-4-20250514"
-        case .gemini: "gemini-2.5-flash"
-        case .openRouter: "openai/gpt-4.1-mini"
-        case .groq: "llama-3.3-70b-versatile"
+        case .openAI: "gpt-5.5"
+        case .anthropic: "claude-sonnet-4.6"
+        case .gemini: "gemini-3.5-flash"
+        case .openRouter: "openai/gpt-5.5"
+        case .groq: "openai/gpt-oss-120b"
         }
     }
 

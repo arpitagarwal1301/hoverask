@@ -12,8 +12,8 @@ This is a personal/local prototype. It supports logged-in CLI providers, local m
 
 Download the latest macOS build from the GitHub release:
 
-- [HoverAsk-v1.1.0-macos.dmg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.1.0/HoverAsk-v1.1.0-macos.dmg)
-- [HoverAsk v1.1.0 release page](https://github.com/arpitagarwal1301/hoverask/releases/tag/v1.1.0)
+- [HoverAsk-v1.2.0-macos.dmg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.dmg)
+- [HoverAsk v1.2.0 release page](https://github.com/arpitagarwal1301/hoverask/releases/tag/v1.2.0)
 
 Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The app is ad-hoc signed for local testing, not Developer ID notarized yet, so macOS may require right-clicking the app and choosing Open on first launch.
 
@@ -30,7 +30,9 @@ Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The app is 
   - `opencode`
   - `agy`
 - Functional provider rows with install/info/login, Keychain connect/delete, model selection, and test actions.
+- Polished provider routing with a selected-route inspector, draggable fallback order, and source add/remove controls.
 - BYOK providers: OpenAI, Anthropic, Gemini, OpenRouter, and Groq with local Keychain storage.
+- Current built-in model suggestions for OpenAI, Anthropic, Gemini, OpenRouter, Groq, Ollama, and LM Studio.
 - Private local providers: Apple Intelligence availability, Ollama, and LM Studio detection/testing.
 - Minimal avatars: Glass Orb, Glass Dog, and Glass Cat.
 - Privacy-safe refractive glass orb with visible idle/listening rings.
@@ -80,7 +82,7 @@ native-swift/HoverAsk/Scripts/package-dmg.sh
 The DMG is created at:
 
 ```bash
-outputs/HoverAsk-v1.1.0-macos.dmg
+outputs/HoverAsk-v1.2.0-macos.dmg
 ```
 
 ## Provider Auth And Keys
