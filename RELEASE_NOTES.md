@@ -8,7 +8,8 @@ The app remains local-first by default: no screenshots are captured, local histo
 
 ## Download
 
-- [Download the macOS DMG](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.dmg)
+- Recommended: [Download the macOS PKG installer](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.pkg)
+- Alternative: [Download the macOS DMG](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.dmg)
 
 ## Highlights
 
@@ -20,9 +21,11 @@ The app remains local-first by default: no screenshots are captured, local histo
 - Aligned Apple Intelligence with other Local provider rows.
 - Reused one consistent `Privacy by design` banner on Overview and Providers.
 - Refreshed built-in model defaults and fallback suggestions for OpenAI, Anthropic, Gemini, OpenRouter, Groq, Ollama, and LM Studio.
+- Added a PKG installer as the recommended no-Terminal installation path.
 
 ## Build Artifact
 
+- `HoverAsk-v1.2.0-macos.pkg`
 - `HoverAsk-v1.2.0-macos.dmg`
 
 ## Requirements
@@ -39,4 +42,4 @@ The app remains local-first by default: no screenshots are captured, local histo
 
 This release is a local prototype. HoverAsk is proprietary software and no open-source license is granted.
 
-The app is ad-hoc signed for local testing, not Developer ID notarized yet. macOS may require right-clicking the app and choosing Open on first launch.
+The app and installer are ad-hoc signed/unsigned for local testing, not Developer ID notarized yet. If macOS blocks the installer, right-click the `.pkg` and choose Open. The DMG remains available as an alternative path.

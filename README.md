@@ -10,12 +10,27 @@ This is a personal/local prototype. It supports logged-in CLI providers, local m
 
 ## Download
 
-Download the latest macOS build from the GitHub release:
+Download the latest macOS build from the GitHub release.
+
+### Recommended: PKG Installer
+
+- [HoverAsk-v1.2.0-macos.pkg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.pkg)
+
+Open the `.pkg`, follow the installer, then launch HoverAsk from Applications. This is the smoothest path for most users because there is no drag-and-drop step and no Terminal command for the installed app.
+
+HoverAsk is ad-hoc signed for local testing, not Developer ID notarized yet. If macOS blocks the installer itself, right-click the `.pkg`, choose Open, then confirm.
+
+### Alternative: DMG
 
 - [HoverAsk-v1.2.0-macos.dmg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.dmg)
 - [HoverAsk v1.2.0 release page](https://github.com/arpitagarwal1301/hoverask/releases/tag/v1.2.0)
 
-Open the DMG, drag `HoverAsk.app` into Applications, then launch it. The app is ad-hoc signed for local testing, not Developer ID notarized yet, so macOS may require right-clicking the app and choosing Open on first launch.
+Open the DMG, drag `HoverAsk.app` into Applications, then launch it. If macOS blocks the app after copying, run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/HoverAsk.app
+open /Applications/HoverAsk.app
+```
 
 ## Features
 
@@ -71,9 +86,21 @@ Launch it with:
 open outputs/HoverAsk.app
 ```
 
-## Package DMG
+## Package Installers
 
-After building the app, create a direct-install DMG with:
+After building the app, create the recommended PKG installer with:
+
+```bash
+native-swift/HoverAsk/Scripts/package-pkg.sh
+```
+
+The PKG is created at:
+
+```bash
+outputs/HoverAsk-v1.2.0-macos.pkg
+```
+
+Create the alternative DMG with:
 
 ```bash
 native-swift/HoverAsk/Scripts/package-dmg.sh

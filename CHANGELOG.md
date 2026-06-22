@@ -7,7 +7,8 @@
 - Made provider row state handling less noisy: transient success messages now auto-clear and unavailable providers avoid irrelevant disconnect actions.
 - Aligned Apple Intelligence with other Local provider rows and reused the same privacy banner on Overview and Providers.
 - Refreshed built-in model defaults and fallback suggestions for OpenAI, Anthropic, Gemini, OpenRouter, Groq, Ollama, and LM Studio.
-- Rebuilt and packaged the v1.2.0 macOS DMG.
+- Added a PKG installer as the recommended installation path and kept the DMG as an alternative.
+- Rebuilt and packaged the v1.2.0 macOS PKG and DMG.
 
 ## v1.1.0 - 2026-06-21
 
