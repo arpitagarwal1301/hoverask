@@ -1,8 +1,10 @@
 # Third-Party Notices
 
-HoverAsk includes selected visual assets from Lockpaw.
+HoverAsk bundles third-party notices for visual resources that are still present in the app resources.
 
 ## Lockpaw
+
+HoverAsk includes selected MIT-licensed visual assets or derived resource material from Lockpaw for the Glass Dog and Glass Cat companion resources. The bundled app also includes `ThirdPartyNotices/Lockpaw-MIT-LICENSE.txt`.
 
 - Source: https://github.com/sorkila/lockpaw
 - License: MIT

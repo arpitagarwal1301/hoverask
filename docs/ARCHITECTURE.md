@@ -1,6 +1,6 @@
 # HoverAsk Architecture
 
-HoverAsk is a native macOS app built with Swift, SwiftUI, AppKit, Speech, AVFoundation, and Carbon hotkeys.
+HoverAsk is a native macOS app built with Swift, SwiftUI, AppKit, Speech, AVFoundation, Carbon hotkeys, and Security/Keychain APIs.
 
 ```mermaid
 flowchart TD
@@ -10,73 +10,81 @@ flowchart TD
   VM --> Engine["AssistantEngine"]
   VM --> Speak["SpeechOutput: NSSpeechSynthesizer"]
   VM --> Motion["CompanionMotionController"]
-  Engine --> Router["Provider Selection"]
-  Router --> Codex["Codex CLI: codex exec"]
-  Router --> Claude["Claude CLI: claude -p"]
-  Router --> Cursor["Cursor CLI: cursor-agent"]
-  Router --> OpenCode["OpenCode CLI: opencode"]
-  Router --> Antigravity["Antigravity CLI: agy"]
-  Engine --> Parser["Stream/Text Parser"]
-  Parser --> VM
+  VM --> History["HistoryStore"]
+  Engine --> Router["Provider Router"]
+  Router --> CLI["Account CLIs"]
+  Router --> Local["Private Local"]
+  Router --> BYOK["BYOK Cloud"]
+  CLI --> Codex["codex exec"]
+  CLI --> Claude["claude -p"]
+  CLI --> Cursor["cursor-agent"]
+  CLI --> OpenCode["opencode"]
+  CLI --> Antigravity["agy"]
+  Local --> Apple["Apple Intelligence"]
+  Local --> Ollama["Ollama"]
+  Local --> LMStudio["LM Studio"]
+  BYOK --> Keychain["macOS Keychain"]
+  BYOK --> Cloud["Provider APIs"]
 ```
 
 ## App Shell
 
-- `NSPanel` uses a transparent borderless window.
-- The panel is set above normal app windows and joins all Spaces.
-- SwiftUI renders the refractive glass avatar, visible orb rings, transcript bubble, answer bubble, and settings panel.
-- Dragging is handled through the floating panel and pauses companion motion briefly.
+- HoverAsk runs as a transparent floating `NSPanel` above normal app windows and across Spaces.
+- SwiftUI renders the glass avatar, anchored chat chip, settings window, provider controls, and local history views.
+- Dragging the avatar moves the panel and temporarily pauses companion motion.
 
 ## Voice Pipeline
 
-- `SpeechService` starts microphone capture through `AVAudioEngine`.
-- `SFSpeechRecognizer` emits partial transcripts for the live bubble.
-- Silence or manual stop submits the final transcript.
+- `SpeechService` uses `AVAudioEngine` for microphone capture and `SFSpeechRecognizer` for partial and final transcripts.
+- Voice input waits for silence before submitting the current transcript.
+- Typing can be used alongside voice and can stop active listening.
 - `SpeechOutput` uses `NSSpeechSynthesizer` for spoken replies when enabled.
 
 ## Provider Engine
 
-HoverAsk keeps the provider boundary local and account-backed.
+`AssistantEngine` routes each prompt through a selected provider or through `Auto`. Auto uses the persisted fallback order from settings, skipping disabled or unavailable providers.
 
-Codex command shape:
+Provider groups:
 
-```bash
-codex exec --ephemeral --skip-git-repo-check --sandbox read-only --color never --json
-```
+- `CLI`: Codex, Claude, Cursor, OpenCode, Antigravity.
+- `Local`: Apple Intelligence, Ollama, LM Studio.
+- `BYOK`: OpenAI, Anthropic, Gemini, OpenRouter, Groq.
 
-Claude command shape:
-
-```bash
-claude -p --output-format stream-json --verbose --include-partial-messages --no-session-persistence --permission-mode dontAsk
-```
-
-Additional CLI command shapes:
+CLI command shapes:
 
 ```bash
+codex exec --ephemeral --skip-git-repo-check --sandbox read-only --color never --json -
+claude -p --output-format stream-json --verbose --include-partial-messages --no-session-persistence --permission-mode dontAsk <prompt>
 cursor-agent --print --mode ask --output-format text --trust --workspace <runtimeDirectory> <prompt>
 opencode run --agent plan --dir <runtimeDirectory> <prompt>
 agy -p <prompt>
 ```
 
-Provider selection supports:
+Local and BYOK routes use provider-specific adapters:
 
-- `Auto`: ready providers in Codex, Claude, Cursor, OpenCode, Antigravity order.
-- `Codex`: Codex only.
-- `Claude`: Claude only.
-- `Cursor`: Cursor only when ready.
-- `OpenCode`: OpenCode only when ready.
-- `Antigravity`: Antigravity only when ready.
+- Apple Intelligence is detected at runtime and uses Apple defaults when available.
+- Ollama uses `localhost:11434`.
+- LM Studio uses `localhost:1234`.
+- BYOK providers use native provider APIs or OpenAI-compatible endpoints, with selected model IDs stored in settings and API keys stored only in Keychain.
 
 ## Local State
 
-- Settings are persisted with `UserDefaults`.
-- Optional history is stored in Application Support under `HoverAsk`.
-- Provider runtime files are isolated under `HoverAsk/assistant-runtime`.
+- App settings are stored with `UserDefaults`.
+- Optional chat history is stored locally in Application Support under `HoverAsk`.
+- Provider runtime files live under `HoverAsk/assistant-runtime`.
+- BYOK keys are stored in macOS Keychain under service `app.hoverask.byok`, one Keychain account per provider.
+
+## Distribution
+
+- Version source of truth: `native-swift/HoverAsk/Resources/Info.plist` -> `CFBundleShortVersionString`.
+- Build output: `outputs/HoverAsk.app`.
+- Release artifacts: `outputs/HoverAsk-v<version>-macos.pkg` and `outputs/HoverAsk-v<version>-macos.dmg`.
+- Homebrew distribution lives in the separate `arpitagarwal1301/homebrew-tap` repo as `Casks/hoverask.rb`.
 
 ## Current Boundaries
 
-- No screenshots.
-- No browser scraping.
-- No API keys in the current release.
-- No remote backend owned by HoverAsk.
+- No screenshots or screen recording.
+- No browser scraping or page reading.
+- No HoverAsk-owned remote backend.
+- BYOK keys are never written to `UserDefaults`, history, docs, diagnostics, or plain files.
 - The orb lens effect is drawn locally and does not sample or magnify real desktop pixels.

@@ -50,6 +50,7 @@ This roadmap tracks the next polish pass after the native macOS V1/V1.1 work. Th
 - Keep Privacy and Terms as subtle links in About/bottom app areas, not inside Voice.
 - Overview keeps one banner: `Privacy by design · No screenshots · Keys in Keychain · Local providers stay on this Mac`.
 - Support flow: the user creates the Buy Me a Coffee page and provides the final public URL. HoverAsk wires it into `SupportConfig.supportURL`, the sidebar bottom card, menu bar, README, and release notes.
+- Keep `PROMOTION.md` private and gitignored. If a fresh checkout is missing it, regenerate it from current repo facts before launch rather than committing private strategy notes.
 
 ### Implementation Status
 

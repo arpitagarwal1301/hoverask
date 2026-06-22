@@ -36,3 +36,6 @@
 /work/
 /tmp/
 /.cache/
+
+# Private launch strategy
+PROMOTION.md
