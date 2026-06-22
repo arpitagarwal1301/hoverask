@@ -4,208 +4,99 @@
   <img src="docs/assets/hoverask-v1-final-preview.png" alt="HoverAsk preview showing a native macOS floating voice assistant with a refractive glass orb, companion avatars, and anchored answer bubble" width="100%">
 </p>
 
-HoverAsk is a native macOS floating voice assistant that sits above other apps. Tap the glass orb or companion, speak in English or Hinglish, and HoverAsk sends the transcribed question to your selected AI source. The answer appears in a compact anchored bubble and can be spoken aloud.
+**HoverAsk** is a native macOS floating voice assistant that sits above your apps. Tap the glass orb or companion, speak in English or Hinglish, and get a text plus spoken answer from your chosen AI route.
 
-This is a personal/local prototype. It supports logged-in CLI providers, local model servers, and optional BYOK providers with keys stored in macOS Keychain. It does not capture screenshots and does not scrape browser content.
-
-## Download
-
-Download the latest macOS build from the GitHub release.
-
-### Recommended: PKG Installer
-
-- [HoverAsk-v1.2.0-macos.pkg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.pkg)
-
-Open the `.pkg`, follow the installer, then launch HoverAsk from Applications. This is the smoothest path for most users because there is no drag-and-drop step and the installed app should open cleanly without a Terminal command.
-
-HoverAsk is not Developer ID notarized yet. If macOS blocks the installer itself, right-click the `.pkg`, choose Open, then confirm. If macOS still blocks it, go to System Settings -> Privacy & Security and choose Open Anyway for HoverAsk.
-
-### Alternative: DMG
-
-- [HoverAsk-v1.2.0-macos.dmg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.dmg)
-- [HoverAsk v1.2.0 release page](https://github.com/arpitagarwal1301/hoverask/releases/tag/v1.2.0)
-
-Open the DMG, drag `HoverAsk.app` into Applications, then launch it.
-
-If macOS says HoverAsk is damaged, cannot be opened, or is from an unidentified developer after copying from the DMG, clear the quarantine flag once:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/HoverAsk.app
-open /Applications/HoverAsk.app
-```
-
-Then approve any remaining prompt from System Settings -> Privacy & Security -> Open Anyway.
-
-### Unsigned Build Notes
-
-The current release is built for evaluation and is not Apple-notarized yet. That means macOS Gatekeeper can show extra prompts even though the app is packaged correctly.
-
-- Prefer the `.pkg` installer first.
-- Use the `.dmg` only if you want the manual drag-to-Applications flow.
-- Use the `xattr` command only for the DMG-installed app when macOS quarantine blocks launch.
-- HoverAsk asks for Microphone and Speech Recognition permissions on first use.
-- HoverAsk does not need Screen Recording permission because it does not capture screenshots or read other apps.
+It supports logged-in CLI accounts, private local model servers, and optional BYOK providers with keys stored in macOS Keychain. No screenshots, no browser scraping, no screen capture.
 
 ## Features
 
-- Native SwiftUI/AppKit macOS app with a floating always-on-top panel.
-- Voice-first question flow using macOS Speech Recognition and microphone input.
-- Spoken replies using the built-in macOS speech synthesizer.
-- Provider choices: Auto, account-backed CLIs, private local providers, or BYOK cloud providers.
-- Account-backed execution through local CLIs:
-  - `codex exec`
-  - `claude -p`
-  - `cursor-agent`
-  - `opencode`
-  - `agy`
-- Functional provider rows with install/info/login, Keychain connect/delete, model selection, and test actions.
-- Polished provider routing with a selected-route inspector, draggable fallback order, and source add/remove controls.
-- BYOK providers: OpenAI, Anthropic, Gemini, OpenRouter, and Groq with local Keychain storage.
-- Current built-in model suggestions for OpenAI, Anthropic, Gemini, OpenRouter, Groq, Ollama, and LM Studio.
-- Private local providers: Apple Intelligence availability, Ollama, and LM Studio detection/testing.
-- Minimal avatars: Glass Orb, Glass Dog, and Glass Cat.
-- Privacy-safe refractive glass orb with visible idle/listening rings.
-- Optional companion movement: stationary, roam, or chase cursor.
-- More readable glass settings, local history size, incremental history loading, and Markdown/JSON history export.
-- Editable global wake hotkey.
+- Floating macOS assistant with glass orb, dog, and cat avatars.
+- Voice-first flow with live transcript, typed fallback, and spoken replies.
+- Account CLI providers: Codex, Claude, Cursor, OpenCode, and Antigravity.
+- Private local providers: Apple Intelligence availability, Ollama, and LM Studio.
+- BYOK cloud providers: OpenAI, Anthropic, Gemini, OpenRouter, and Groq.
+- Provider routing with draggable fallback order and per-provider tests.
+- Local chat history with Markdown/JSON export.
+- Editable global wake shortcut.
 
-## Requirements
+> HoverAsk is not notarized by Apple yet. **Homebrew is the cleanest install** because it uses the release `.pkg` and avoids the DMG quarantine cleanup. Direct downloads work too, with one small one-time step if macOS blocks them.
 
-- macOS 14 or newer.
-- Xcode Command Line Tools with `swiftc`.
-- A logged-in Codex CLI account for Codex provider support.
-- A logged-in Claude Code CLI account for Claude provider support.
-- Optional logged-in Cursor CLI account for Cursor provider support.
-- Optional configured OpenCode CLI for OpenCode provider support.
-- Optional Antigravity CLI for Antigravity provider support.
-- Optional API keys for BYOK cloud providers. Keys are stored only in macOS Keychain.
-- Optional Ollama or LM Studio local servers for private local model routes.
-- Microphone and Speech Recognition permissions granted to HoverAsk on first launch.
+### Homebrew (recommended)
 
-## First Launch Permissions
-
-On first launch, macOS may ask for:
-
-- Microphone, for tap-to-talk voice input.
-- Speech Recognition, for converting English/Hinglish speech to text.
-
-If you deny either permission by mistake, enable it later from System Settings -> Privacy & Security. Quit and reopen HoverAsk after changing permissions.
-
-## Build
-
-```bash
-native-swift/HoverAsk/Scripts/build.sh
+```sh
+brew tap arpitagarwal1301/tap
+brew install --cask hoverask
 ```
 
-The app is created at:
+Homebrew may ask for your macOS password while installing the package.
 
-```bash
-outputs/HoverAsk.app
-```
+### Installer (`.pkg`)
 
-Launch it with:
+1. Download **`HoverAsk-v1.2.0-macos.pkg`** from the [latest release](https://github.com/arpitagarwal1301/hoverask/releases/latest).
+2. Open it; if macOS calls it "unidentified," **right-click -> Open** or use System Settings -> Privacy & Security -> **Open Anyway** once.
+3. Click through the installer. HoverAsk lands in Applications.
 
-```bash
-open outputs/HoverAsk.app
-```
+### Disk image (`.dmg`)
 
-## Package Installers
+1. Download **`HoverAsk-v1.2.0-macos.dmg`** from the [latest release](https://github.com/arpitagarwal1301/hoverask/releases/latest).
+2. Drag **HoverAsk** into Applications.
+3. If macOS says HoverAsk is damaged or blocked, clear quarantine once:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/HoverAsk.app
+   open /Applications/HoverAsk.app
+   ```
 
-After building the app, create the recommended PKG installer with:
-
-```bash
-native-swift/HoverAsk/Scripts/package-pkg.sh
-```
-
-The PKG is created at:
-
-```bash
-outputs/HoverAsk-v1.2.0-macos.pkg
-```
-
-Create the alternative DMG with:
-
-```bash
-native-swift/HoverAsk/Scripts/package-dmg.sh
-```
-
-The DMG is created at:
-
-```bash
-outputs/HoverAsk-v1.2.0-macos.dmg
-```
-
-## Provider Auth And Keys
-
-HoverAsk can shell out to locally installed CLIs that are already logged in, or it can use BYOK cloud providers whose keys are stored only in macOS Keychain under `app.hoverask.byok`.
-
-For Codex, install and log in to the Codex CLI, then verify:
-
-```bash
-codex --version
-```
-
-For Claude, install and log in to Claude Code, then verify:
-
-```bash
-claude --version
-```
-
-Optional providers:
-
-```bash
-cursor-agent --version
-opencode --version
-agy --version
-```
-
-Only ready providers appear in quick provider pickers. `Auto` tries ready providers in this order: account CLIs, private local providers, then BYOK cloud providers.
-
-BYOK providers can be connected from Settings -> Providers:
-
-- OpenAI
-- Anthropic
-- Gemini
-- OpenRouter
-- Groq
-
-Private local providers can be tested from Settings -> Providers:
-
-- Apple Intelligence, when supported by macOS and the build SDK
-- Ollama at `localhost:11434`
-- LM Studio at `localhost:1234`
+> Requires **macOS 14+** on Apple Silicon. HoverAsk asks only for Microphone and Speech Recognition permissions.
 
 ## Usage
 
-1. Open HoverAsk.
-2. Tap the orb or companion.
-3. Speak a question in English or Hinglish.
-4. Watch the live transcript bubble.
-5. HoverAsk sends the final transcript to the selected provider.
-6. Read and optionally hear the answer.
+1. Launch HoverAsk.
+2. Tap the orb or companion, or press the global shortcut.
+3. Speak or type a question.
+4. HoverAsk routes it to the selected provider and shows the answer in the anchored chat chip.
 
-The status menu includes show/hide, settings, and quit controls.
+Configure providers, voice, avatar, history, and BYOK keys from Settings.
 
-## Privacy
+## Provider Setup
 
-- No screenshots or screen content are captured.
-- No browser scraping is performed.
-- BYOK API keys are stored only in macOS Keychain.
-- Prompts are sent only to the selected provider route.
-- Settings and optional history are stored locally under the user's Application Support directory.
-- Saved chat history can be exported as Markdown or JSON.
+Use any provider route you already have access to:
 
-See [PRIVACY.md](PRIVACY.md) for details.
-See [TERMS.md](TERMS.md) for prototype terms and limitations.
+- CLI accounts: install and log in to `codex`, `claude`, `cursor-agent`, `opencode`, or `agy`.
+- BYOK: connect OpenAI, Anthropic, Gemini, OpenRouter, or Groq from Settings -> Providers. Keys stay in macOS Keychain.
+- Local: run Ollama at `localhost:11434` or LM Studio at `localhost:1234`.
 
-## Third-Party Notices
+Only ready providers appear in quick pickers. `Auto` tries ready CLI providers first, then private local providers, then BYOK cloud providers.
 
-HoverAsk includes MIT-licensed Lockpaw visual assets for the Glass Dog and Glass Cat companions. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Permissions
 
-## Release Status
+On first use, macOS may ask for:
 
-The current release is published for evaluation while branding, assets, and distribution decisions remain under review. HoverAsk is proprietary software; see [LICENSE](LICENSE).
+- **Microphone** for voice input.
+- **Speech Recognition** for converting speech to text.
 
-## GitHub Visuals
+HoverAsk does not request Screen Recording permission because it does not capture your screen.
 
-The repository preview artwork lives at [docs/assets/hoverask-v1-final-preview.png](docs/assets/hoverask-v1-final-preview.png). Use it for GitHub's Social preview image so the project is recognizable when shared.
+## Build From Source
+
+Requires Xcode Command Line Tools.
+
+```bash
+native-swift/HoverAsk/Scripts/build.sh
+open outputs/HoverAsk.app
+```
+
+Release packaging scripts:
+
+```bash
+native-swift/HoverAsk/Scripts/package-pkg.sh
+native-swift/HoverAsk/Scripts/package-dmg.sh
+```
+
+## More
+
+- [Privacy](PRIVACY.md) · [Terms](TERMS.md)
+- [Release notes](RELEASE_NOTES.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+- Current release artifacts: `HoverAsk-v1.2.0-macos.pkg` and `HoverAsk-v1.2.0-macos.dmg`
+
+HoverAsk is proprietary software; see [LICENSE](LICENSE).
