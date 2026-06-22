@@ -16,21 +16,35 @@ Download the latest macOS build from the GitHub release.
 
 - [HoverAsk-v1.2.0-macos.pkg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.pkg)
 
-Open the `.pkg`, follow the installer, then launch HoverAsk from Applications. This is the smoothest path for most users because there is no drag-and-drop step and no Terminal command for the installed app.
+Open the `.pkg`, follow the installer, then launch HoverAsk from Applications. This is the smoothest path for most users because there is no drag-and-drop step and the installed app should open cleanly without a Terminal command.
 
-HoverAsk is ad-hoc signed for local testing, not Developer ID notarized yet. If macOS blocks the installer itself, right-click the `.pkg`, choose Open, then confirm.
+HoverAsk is not Developer ID notarized yet. If macOS blocks the installer itself, right-click the `.pkg`, choose Open, then confirm. If macOS still blocks it, go to System Settings -> Privacy & Security and choose Open Anyway for HoverAsk.
 
 ### Alternative: DMG
 
 - [HoverAsk-v1.2.0-macos.dmg](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.dmg)
 - [HoverAsk v1.2.0 release page](https://github.com/arpitagarwal1301/hoverask/releases/tag/v1.2.0)
 
-Open the DMG, drag `HoverAsk.app` into Applications, then launch it. If macOS blocks the app after copying, run:
+Open the DMG, drag `HoverAsk.app` into Applications, then launch it.
+
+If macOS says HoverAsk is damaged, cannot be opened, or is from an unidentified developer after copying from the DMG, clear the quarantine flag once:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/HoverAsk.app
 open /Applications/HoverAsk.app
 ```
+
+Then approve any remaining prompt from System Settings -> Privacy & Security -> Open Anyway.
+
+### Unsigned Build Notes
+
+The current release is built for evaluation and is not Apple-notarized yet. That means macOS Gatekeeper can show extra prompts even though the app is packaged correctly.
+
+- Prefer the `.pkg` installer first.
+- Use the `.dmg` only if you want the manual drag-to-Applications flow.
+- Use the `xattr` command only for the DMG-installed app when macOS quarantine blocks launch.
+- HoverAsk asks for Microphone and Speech Recognition permissions on first use.
+- HoverAsk does not need Screen Recording permission because it does not capture screenshots or read other apps.
 
 ## Features
 
@@ -67,6 +81,15 @@ open /Applications/HoverAsk.app
 - Optional API keys for BYOK cloud providers. Keys are stored only in macOS Keychain.
 - Optional Ollama or LM Studio local servers for private local model routes.
 - Microphone and Speech Recognition permissions granted to HoverAsk on first launch.
+
+## First Launch Permissions
+
+On first launch, macOS may ask for:
+
+- Microphone, for tap-to-talk voice input.
+- Speech Recognition, for converting English/Hinglish speech to text.
+
+If you deny either permission by mistake, enable it later from System Settings -> Privacy & Security. Quit and reopen HoverAsk after changing permissions.
 
 ## Build
 

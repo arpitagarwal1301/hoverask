@@ -11,6 +11,15 @@ The app remains local-first by default: no screenshots are captured, local histo
 - Recommended: [Download the macOS PKG installer](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.pkg)
 - Alternative: [Download the macOS DMG](https://github.com/arpitagarwal1301/hoverask/releases/download/v1.2.0/HoverAsk-v1.2.0-macos.dmg)
 
+Use the `.pkg` first. If macOS blocks the unsigned installer, right-click the `.pkg`, choose Open, then approve it from System Settings -> Privacy & Security if needed.
+
+Use the `.dmg` only for the manual drag-to-Applications flow. If macOS blocks the DMG-installed app, run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/HoverAsk.app
+open /Applications/HoverAsk.app
+```
+
 ## Highlights
 
 - Added a clearer selected-route inspector for Auto fallback routing.
@@ -42,4 +51,4 @@ The app remains local-first by default: no screenshots are captured, local histo
 
 This release is a local prototype. HoverAsk is proprietary software and no open-source license is granted.
 
-The app and installer are ad-hoc signed/unsigned for local testing, not Developer ID notarized yet. If macOS blocks the installer, right-click the `.pkg` and choose Open. The DMG remains available as an alternative path.
+The app and installer are ad-hoc signed/unsigned for local testing, not Developer ID notarized yet. The `.pkg` is the recommended install path; the `.dmg` remains available as an alternative with the quarantine cleanup step above.
